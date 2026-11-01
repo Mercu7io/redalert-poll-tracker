@@ -20,6 +20,8 @@
 - 2026-11-01: Modernisation complète de l'interface utilisateur sur la branche devs avec design 2026-2027, métriques en temps réel, recherche instantanée et tableau accessible.
 - 2026-11-01: Ajout de la mise en favoris des groupes, de la persistance de sélection au rechargement, du remplacement dynamique de [Name] dans les relances et de la synchronisation d'historique WhatsApp.
 - 2026-11-01: Intégration du sélecteur bilingue (FR/EN) directement sur la carte de connexion avec persistance et mise à jour dynamique des textes.
+- 2026-11-01: Correction d'une erreur de syntaxe JS bloquant l'initialisation de l'application, fiabilisation du retour visuel d'erreur de mot de passe et support de la touche Entrée.
+
 
 
 

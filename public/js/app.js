@@ -189,7 +189,16 @@
         const pwdInput = document.getElementById('password-input');
         const timeoutSelect = document.getElementById('timeout-select');
         const errorEl = document.getElementById('login-error');
-        const pwd = pwdInput.value.trim();
+        const pwd = pwdInput ? pwdInput.value.trim() : '';
+
+        if (!pwd) {
+            if (errorEl) {
+                errorEl.classList.remove('hidden');
+                errorEl.style.display = 'flex';
+            }
+            pwdInput?.focus();
+            return;
+        }
 
         try {
             const res = await fetch('/api/login-check', {
@@ -199,17 +208,32 @@
             });
 
             if (res.ok) {
-                errorEl.classList.add('hidden');
-                api.setSession(pwd, parseInt(timeoutSelect.value, 10));
+                if (errorEl) {
+                    errorEl.classList.add('hidden');
+                    errorEl.style.display = 'none';
+                }
+                api.setSession(pwd, parseInt(timeoutSelect ? timeoutSelect.value : 60, 10));
                 els.login.classList.add('hidden');
                 els.app.classList.remove('hidden');
                 initSocket();
                 checkStatus();
             } else {
-                errorEl.classList.remove('hidden');
+                if (errorEl) {
+                    errorEl.classList.remove('hidden');
+                    errorEl.style.display = 'flex';
+                }
+                if (pwdInput) {
+                    pwdInput.classList.add('ring-2', 'ring-rose-500', 'border-rose-500');
+                    setTimeout(() => {
+                        pwdInput.classList.remove('ring-2', 'ring-rose-500', 'border-rose-500');
+                    }, 2000);
+                }
             }
         } catch (e) {
-            errorEl.classList.remove('hidden');
+            if (errorEl) {
+                errorEl.classList.remove('hidden');
+                errorEl.style.display = 'flex';
+            }
         }
     }
 
@@ -747,15 +771,6 @@
             els.btnRemindAll.textContent = i18n.t('reminder.remindAll');
         }
     }
-                alert('Error sending bulk reminders');
-            }
-        } catch (e) {
-            alert('Failed to send bulk reminders');
-        } finally {
-            els.btnRemindAll.disabled = false;
-            els.btnRemindAll.textContent = i18n.t('reminder.remindAll');
-        }
-    }
 
     async function exportCsv() {
         const gid = els.groups.value;
@@ -814,6 +829,21 @@
     window.addEventListener('DOMContentLoaded', async () => {
         await i18n.init();
         initSavedTemplate();
+
+        const pwdInput = document.getElementById('password-input');
+        pwdInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                login();
+            }
+        });
+        pwdInput?.addEventListener('input', () => {
+            const errorEl = document.getElementById('login-error');
+            if (errorEl) {
+                errorEl.classList.add('hidden');
+                errorEl.style.display = 'none';
+            }
+        });
 
         document.getElementById('lang-select')?.addEventListener('change', async (e) => {
             await i18n.setLanguage(e.target.value);
