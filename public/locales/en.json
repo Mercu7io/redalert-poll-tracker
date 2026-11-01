@@ -62,7 +62,12 @@
         "hiddenByWhatsApp": "Hidden by WhatsApp",
         "loading": "Syncing directly with WhatsApp...",
         "noPolls": "No active polls. Broadcast one above!",
-        "selectToStart": "Select a group to start tracking"
+        "selectToStart": "Select a group to start tracking",
+        "searchPlaceholder": "Search by name or number...",
+        "metricsTotal": "Total",
+        "metricsResponded": "Responded",
+        "metricsPending": "Pending",
+        "participationRate": "Response Rate"
     },
     "auth": {
         "linkTitle": "Link WhatsApp",

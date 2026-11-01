@@ -334,6 +334,34 @@
         }
     }
 
+    function getInitials(name = '') {
+        const parts = name.trim().split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[1][0]).toUpperCase();
+        }
+        return (name.trim().substring(0, 2) || '?').toUpperCase();
+    }
+
+    const avatarColors = [
+        'bg-blue-50 text-blue-700 border-blue-200/60',
+        'bg-emerald-50 text-emerald-700 border-emerald-200/60',
+        'bg-indigo-50 text-indigo-700 border-indigo-200/60',
+        'bg-purple-50 text-purple-700 border-purple-200/60',
+        'bg-amber-50 text-amber-700 border-amber-200/60',
+        'bg-rose-50 text-rose-700 border-rose-200/60',
+        'bg-teal-50 text-teal-700 border-teal-200/60'
+    ];
+
+    function getAvatarClass(name = '') {
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        return avatarColors[Math.abs(hash) % avatarColors.length];
+    }
+
+    function handleSearch() {
+        renderTable();
+    }
+
     function toggleSort(col) {
         if (currentSort.column === col) {
             currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
@@ -347,10 +375,19 @@
     function renderTable() {
         let voted = 0;
         const filterVal = els.filter.value;
+        const searchInput = document.getElementById('search-input');
+        const searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
         const fragment = document.createDocumentFragment();
 
         const filteredStats = globalStats.filter(m => {
             if (m.hasVoted) voted++;
+
+            if (searchQuery) {
+                const nameMatch = (m.name || '').toLowerCase().includes(searchQuery);
+                const numberMatch = (m.number || '').toLowerCase().includes(searchQuery);
+                if (!nameMatch && !numberMatch) return false;
+            }
+
             if (filterVal === 'all') return true;
             if (filterVal === 'pending') return !m.hasVoted;
             if (filterVal === 'responded') return m.hasVoted;
@@ -405,41 +442,65 @@
             let formattedTime = '';
             if (m.timestamp) {
                 const utcDate = new Date(m.timestamp.replace(' ', 'T') + 'Z');
-                formattedTime = utcDate.toLocaleString();
+                formattedTime = utcDate.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
             }
 
-            const dotColorClass = m.hasVoted && displayOptions.length > 0 ? getOptionColor(displayOptions[0], globalPollOptions) : 'bg-slate-300 shadow-inner';
-
             const tr = document.createElement('tr');
-            tr.className = "hover:bg-slate-50 transition duration-100";
+            tr.className = "hover:bg-slate-50/80 transition-colors duration-150 group";
             const safeName = (m.name || '').replace(/'/g, "\\'");
+            const initials = getInitials(m.name);
+            const avatarColor = getAvatarClass(m.name);
+
+            // Option badges markup
+            const optionsBadges = displayOptions.map(opt => {
+                const isEmergency = /help|aide|sos|secours/i.test(opt);
+                const badgeColor = isEmergency 
+                    ? 'bg-rose-50 text-rose-700 border-rose-200/80 font-bold' 
+                    : 'bg-blue-50 text-blue-700 border-blue-200/70 font-semibold';
+                return `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] border ${badgeColor} mr-1 mb-0.5 shadow-2xs">${opt}</span>`;
+            }).join('');
+
             tr.innerHTML = `
-                <td class="px-8 py-5 text-sm font-bold text-slate-700">
-                    <div class="flex items-center space-x-1.5 group">
-                        <span class="member-display-name">${m.name}</span>
-                        <button onclick="window.PollApp.editContactName('${m.id}', '${safeName}', '${m.number || m.id}')" 
-                                class="text-slate-400 hover:text-blue-600 p-1 rounded hover:bg-slate-200/50 transition cursor-pointer" 
-                                title="${i18n.t('contacts.editName')}">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                        </button>
+                <td class="px-6 py-4 text-xs">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs border shrink-0 shadow-2xs ${avatarColor}">
+                            ${initials}
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex items-center space-x-1.5">
+                                <span class="member-display-name font-bold text-slate-900 truncate">${m.name}</span>
+                                <button onclick="window.PollApp.editContactName('${m.id}', '${safeName}', '${m.number || m.id}')" 
+                                        class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-600 p-1 rounded-md hover:bg-slate-100 transition-opacity duration-150 cursor-pointer" 
+                                        title="${i18n.t('contacts.editName')}">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                </button>
+                            </div>
+                            <div class="text-[11px] font-mono text-slate-500 mt-0.5">${m.number || ''}</div>
+                        </div>
                     </div>
-                    <div class="text-[10px] font-normal text-slate-400 font-mono mt-0.5">${m.number || ''}</div>
                 </td>
-                <td class="px-8 py-5">
-                    <div class="flex items-center mb-1">
-                        <span class="w-2.5 h-2.5 rounded-full mr-2 shrink-0 ${dotColorClass}"></span>
-                        <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${m.hasVoted ? 'bg-green-100 text-green-700' : 'bg-red-50 text-red-600'}">
-                            ${m.hasVoted ? i18n.t('results.responded') : i18n.t('results.pending')}
+                <td class="px-6 py-4 text-xs">
+                    <div class="flex items-center space-x-2">
+                        <span class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase border ${m.hasVoted ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80' : 'bg-amber-50 text-amber-700 border-amber-200/80'}">
+                            <span class="w-1.5 h-1.5 rounded-full ${m.hasVoted ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}"></span>
+                            <span>${m.hasVoted ? i18n.t('results.responded') : i18n.t('results.pending')}</span>
                         </span>
+                        ${formattedTime ? `<span class="text-[10px] text-slate-400 font-mono inline-flex items-center"><svg class="w-3 h-3 mr-1 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>${formattedTime}</span>` : ''}
                     </div>
-                    ${m.hasVoted ? `<div class="text-[9px] font-black text-slate-500 mt-2 ml-4">${displayOptions.join(', ')}</div>` : ''}
-                    ${m.timestamp ? `<div class="text-[9px] font-semibold text-slate-400 mt-1 ml-4 flex items-center">
-                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        ${formattedTime}
-                    </div>` : ''}
+                    ${displayOptions.length > 0 ? `<div class="mt-2 flex flex-wrap items-center">${optionsBadges}</div>` : ''}
                 </td>
-                <td class="px-8 py-5 text-right">
-                    ${!m.hasVoted ? `<button onclick="window.PollApp.sendReminder('${m.id}', this)" class="text-[9px] bg-blue-600 text-white font-black uppercase py-2 px-4 rounded-xl shadow-md hover:bg-blue-700 transition">${i18n.t('reminder.remind')}</button>` : '<div class="text-green-500 font-black px-4">✓</div>'}
+                <td class="px-6 py-4 text-right">
+                    ${!m.hasVoted ? `
+                        <button onclick="window.PollApp.sendReminder('${m.id}', this)" class="inline-flex items-center space-x-1 text-xs bg-slate-900 hover:bg-black text-white font-bold py-1.5 px-3 rounded-xl shadow-xs transition active:scale-95 cursor-pointer">
+                            <svg class="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                            <span>${i18n.t('reminder.remind')}</span>
+                        </button>
+                    ` : `
+                        <span class="inline-flex items-center space-x-1 text-emerald-600 bg-emerald-50 border border-emerald-200/60 font-bold px-2.5 py-1 rounded-xl text-xs">
+                            <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                            <span>OK</span>
+                        </span>
+                    `}
                 </td>
             `;
             fragment.appendChild(tr);
@@ -448,6 +509,23 @@
         els.members.innerHTML = '';
         els.members.appendChild(fragment);
         els.stats.textContent = `${voted}/${globalStats.length}`;
+
+        // Live Metric Cards update
+        const totalCount = globalStats.length;
+        const votedCount = voted;
+        const pendingCount = Math.max(0, totalCount - votedCount);
+        const percent = totalCount > 0 ? Math.round((votedCount / totalCount) * 100) : 0;
+
+        const totalEl = document.getElementById('metric-total');
+        if (totalEl) totalEl.textContent = totalCount;
+        const votedEl = document.getElementById('metric-voted');
+        if (votedEl) votedEl.textContent = votedCount;
+        const pendingEl = document.getElementById('metric-pending');
+        if (pendingEl) pendingEl.textContent = pendingCount;
+        const percentEl = document.getElementById('metric-percent');
+        if (percentEl) percentEl.textContent = `${percent}%`;
+        const progressBar = document.getElementById('metric-progress-bar');
+        if (progressBar) progressBar.style.width = `${percent}%`;
     }
 
     async function createNewPoll() {
@@ -670,6 +748,7 @@
         sendReminder,
         editContactName,
         toggleSort,
+        handleSearch,
         toggleBox: (id) => document.getElementById(id)?.classList.toggle('hidden')
     };
 })();

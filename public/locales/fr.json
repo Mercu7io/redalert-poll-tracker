@@ -62,7 +62,12 @@
         "hiddenByWhatsApp": "Masqué par WhatsApp",
         "loading": "Synchronisation directe avec WhatsApp...",
         "noPolls": "Aucun sondage actif. Diffusez-en un ci-contre !",
-        "selectToStart": "Sélectionnez un groupe pour démarrer le suivi"
+        "selectToStart": "Sélectionnez un groupe pour démarrer le suivi",
+        "searchPlaceholder": "Rechercher par nom ou numéro...",
+        "metricsTotal": "Total",
+        "metricsResponded": "Répondus",
+        "metricsPending": "En attente",
+        "participationRate": "Taux de réponse"
     },
     "auth": {
         "linkTitle": "Lier WhatsApp",
