@@ -60,15 +60,15 @@
 
                 <!-- Right Actions -->
                 <div class="flex items-center space-x-3">
-                    <!-- Connection Indicator -->
-                    <div id="connection-indicator" class="inline-flex items-center space-x-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200/60 shadow-sm" data-i18n="header.syncing">
+                    <!-- Connection Indicator (shown when logged in) -->
+                    <div id="connection-indicator" class="hidden inline-flex items-center space-x-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200/60 shadow-sm" data-i18n="header.syncing">
                         <span class="w-2 h-2 rounded-full bg-slate-400 animate-pulse"></span>
                         <span>Syncing...</span>
                     </div>
 
-                    <!-- Language Switcher -->
+                    <!-- Language Switcher (Single source of truth) -->
                     <div class="relative">
-                        <select id="lang-select" class="appearance-none bg-slate-100/80 hover:bg-slate-100 border border-slate-200/70 text-xs font-bold text-slate-700 rounded-xl pl-3 pr-7 py-1.5 outline-none cursor-pointer transition focus:ring-2 focus:ring-blue-500/20">
+                        <select id="lang-select" onchange="window.i18n.setLanguage(this.value)" class="appearance-none bg-slate-100/80 hover:bg-slate-100 border border-slate-200/70 text-xs font-bold text-slate-700 rounded-xl pl-3 pr-7 py-1.5 outline-none cursor-pointer transition focus:ring-2 focus:ring-blue-500/20">
                             <option value="fr">🇫🇷 FR</option>
                             <option value="en">🇬🇧 EN</option>
                         </select>
@@ -77,8 +77,8 @@
                         </div>
                     </div>
 
-                    <!-- Lock / Logout -->
-                    <button onclick="window.PollApp.logoutWeb()" class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition" data-i18n-title="header.lockScreen" title="Lock Screen">
+                    <!-- Lock / Logout (hidden when not logged in) -->
+                    <button id="btn-logout" onclick="window.PollApp.logoutWeb()" class="hidden p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer" data-i18n-title="header.lockScreen" title="Lock Screen">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
                     </button>
                 </div>
@@ -91,14 +91,6 @@
 
         <!-- Login Section -->
         <div id="login-section" class="max-w-md mx-auto my-12 bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-8 sm:p-10 text-center transition-all duration-300">
-            <!-- Language Switcher on Login Card -->
-            <div class="flex justify-end mb-4">
-                <div class="inline-flex p-1 bg-slate-100/80 rounded-xl border border-slate-200/60 text-xs font-bold space-x-1">
-                    <button type="button" onclick="window.i18n.setLanguage('fr')" class="lang-btn-fr px-2.5 py-1 rounded-lg transition cursor-pointer">🇫🇷 FR</button>
-                    <button type="button" onclick="window.i18n.setLanguage('en')" class="lang-btn-en px-2.5 py-1 rounded-lg transition cursor-pointer">🇬🇧 EN</button>
-                </div>
-            </div>
-
             <div class="relative mx-auto mb-6 w-20 h-20">
                 <div class="absolute inset-0 bg-blue-500/20 rounded-2xl blur-xl"></div>
                 <img src="/images/favicon.png" width="80" height="80" alt="Logo" class="relative rounded-2xl shadow-md border border-slate-100 mx-auto">

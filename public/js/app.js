@@ -215,6 +215,8 @@
                 api.setSession(pwd, parseInt(timeoutSelect ? timeoutSelect.value : 60, 10));
                 els.login.classList.add('hidden');
                 els.app.classList.remove('hidden');
+                document.getElementById('btn-logout')?.classList.remove('hidden');
+                document.getElementById('connection-indicator')?.classList.remove('hidden');
                 initSocket();
                 checkStatus();
             } else {
@@ -241,6 +243,8 @@
         api.clearSession();
         els.app.classList.add('hidden');
         els.login.classList.remove('hidden');
+        document.getElementById('btn-logout')?.classList.add('hidden');
+        document.getElementById('connection-indicator')?.classList.add('hidden');
         if (socket) {
             socket.disconnect();
             socket = null;
@@ -889,11 +893,15 @@
         if (api.isAuthenticated()) {
             els.login.classList.add('hidden');
             els.app.classList.remove('hidden');
+            document.getElementById('btn-logout')?.classList.remove('hidden');
+            document.getElementById('connection-indicator')?.classList.remove('hidden');
             initSocket();
             checkStatus();
         } else {
             els.login.classList.remove('hidden');
             els.app.classList.add('hidden');
+            document.getElementById('btn-logout')?.classList.add('hidden');
+            document.getElementById('connection-indicator')?.classList.add('hidden');
         }
     });
 

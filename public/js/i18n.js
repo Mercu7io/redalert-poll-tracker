@@ -70,16 +70,6 @@ const i18n = {
         document.documentElement.lang = this.currentLang;
         const selector = document.getElementById('lang-select');
         if (selector) selector.value = this.currentLang;
-
-        const activeClass = 'px-2.5 py-1 rounded-lg transition bg-white shadow-xs text-blue-600 font-extrabold cursor-pointer';
-        const inactiveClass = 'px-2.5 py-1 rounded-lg transition text-slate-500 hover:text-slate-900 cursor-pointer';
-
-        document.querySelectorAll('.lang-btn-fr').forEach(b => {
-            b.className = `lang-btn-fr ${this.currentLang === 'fr' ? activeClass : inactiveClass}`;
-        });
-        document.querySelectorAll('.lang-btn-en').forEach(b => {
-            b.className = `lang-btn-en ${this.currentLang === 'en' ? activeClass : inactiveClass}`;
-        });
     }
 };
 
