@@ -1,0 +1,21 @@
+services:
+  wa-poll-tracker:
+    image: ghcr.io/mercu7io/redalert-poll-tracker:latest
+    # build: . # Uncomment to build locally
+    container_name: wa-poll-tracker
+    ports:
+      - "${PORT:-3500}:3500"
+    volumes:
+      - ./.baileys_auth:/app/.baileys_auth
+      - ./data:/app/data
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+    networks:
+      - ironcow_net
+    restart: unless-stopped
+
+networks:
+  ironcow_net:
+    external: true

@@ -1,0 +1,20 @@
+{
+  "name": "wa-poll-tracker",
+  "version": "1.1.0",
+  "description": "WhatsApp Poll Tracker with WebSockets and Live Updates",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --max-old-space-size=256 server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "7.0.0-rc13",
+    "dotenv": "^18.0.9",
+    "express": "4.21.1",
+    "pino": "^9.0.0",
+    "qrcode": "1.5.3",
+    "socket.io": "4.7.5",
+    "sqlite3": "5.1.7",
+    "zod": "^4.6.7"
+  }
+}

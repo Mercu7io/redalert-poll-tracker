@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="appTitle">WhatsApp Poll Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="icon" type="image/x-icon" href="/images/favicon.png">
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans p-4 md:p-8">
+
+    <!-- Top Language Bar -->
+    <div class="max-w-5xl mx-auto flex justify-end mb-4">
+        <select id="lang-select" class="bg-white border border-slate-200 text-xs font-bold rounded-lg px-3 py-1.5 outline-none shadow-sm cursor-pointer hover:border-slate-300 transition">
+            <option value="fr">🇫🇷 Français</option>
+            <option value="en">🇬🇧 English</option>
+        </select>
+    </div>
+
+    <!-- Login Section -->
+    <div id="login-section" class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 text-center mt-12 border border-slate-100">
+        <div class="mx-auto mb-6 flex justify-center">
+            <img src="/images/favicon.png" width="72" height="72" alt="Logo" class="rounded-2xl shadow-md border border-slate-100">
+        </div>
+        <h2 class="text-2xl font-bold mb-2" data-i18n="login.title">Connexion Live Tracker</h2>
+        <p class="text-slate-500 mb-8 text-sm" data-i18n="login.subtitle">Accès sécurisé à la surveillance WhatsApp</p>
+        <input type="password" id="password-input" class="w-full border-slate-200 rounded-xl p-4 border focus:ring-4 focus:ring-green-500/10 focus:border-green-500 outline-none mb-4 transition text-center text-lg" placeholder="••••••••">
+        <select id="timeout-select" class="w-full border-slate-200 rounded-xl p-3 border mb-6 outline-none text-sm text-slate-600">
+            <option value="60" selected data-i18n="login.stay1Hour">Rester connecté 1 Heure</option>
+            <option value="1440" data-i18n="login.stay1Day">Rester connecté 1 Jour</option>
+            <option value="10080" data-i18n="login.stay1Week">Rester connecté 1 Semaine</option>
+        </select>
+        <button onclick="window.PollApp.login()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl transition shadow-lg shadow-green-500/30" data-i18n="login.enterDashboard">Accéder au tableau de bord</button>
+        <p id="login-error" class="text-red-500 text-xs mt-4 hidden font-semibold" data-i18n="login.invalidPassword">Mot de passe incorrect. Réessayez.</p>
+    </div>
+
+    <!-- Main Content -->
+    <div id="app-container" class="hidden max-w-5xl mx-auto">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+            <h1 class="text-3xl font-black text-slate-800 flex items-center">
+                <img src="/images/favicon.png" width="44" height="44" class="mr-3 rounded-xl shadow-sm border border-slate-100" alt="Logo">
+                <span data-i18n="appTitle">PollTracker</span>
+            </h1>
+            <div class="flex items-center space-x-3 bg-white p-1.5 rounded-full shadow-sm border border-slate-100">
+                <div id="connection-indicator" class="text-[10px] font-black uppercase px-4 py-2 rounded-full bg-slate-100 text-slate-400" data-i18n="header.syncing">Syncing...</div>
+                <button onclick="window.PollApp.logoutWeb()" class="p-2 hover:bg-slate-50 rounded-full text-slate-400 transition" data-i18n-title="header.lockScreen" title="Lock Screen">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Controls -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- Group & Poll Selector -->
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
+                    <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6" data-i18n="config.title">Configuration</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-2" data-i18n="config.groupLabel">WhatsApp Group</label>
+                            <select id="group-select" class="w-full bg-slate-50 border-transparent rounded-xl p-3 border focus:bg-white focus:ring-4 focus:ring-green-500/10 focus:border-green-500 outline-none transition cursor-pointer text-sm"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-2" data-i18n="config.pollLabel">Active Poll</label>
+                            <select id="poll-select" class="w-full bg-slate-50 border-transparent rounded-xl p-3 border focus:bg-white focus:ring-4 focus:ring-green-500/10 focus:border-green-500 outline-none transition cursor-pointer text-sm" disabled>
+                                <option value="" data-i18n="config.selectGroupFirst">Select a group first</option>
+                            </select>
+                        </div>
+                        <button onclick="window.PollApp.forceSync()" class="w-full flex items-center justify-center space-x-2 bg-slate-900 text-white text-xs font-bold py-3 rounded-xl hover:bg-black transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            <span data-i18n="config.forceSync">Force Sync Data</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Launch Poll Box -->
+                <div class="bg-blue-600 rounded-3xl shadow-lg shadow-blue-500/20 p-6 text-white">
+                    <div class="flex justify-between items-center mb-4">
+                        <div class="flex items-center space-x-2">
+                            <h2 class="text-xs font-black uppercase tracking-widest opacity-80" data-i18n="broadcast.title">Broadcast Poll</h2>
+                            <button type="button" onclick="window.PollApp.updatePollTime()" class="inline-flex items-center space-x-1 text-[10px] font-bold bg-white/15 hover:bg-white/25 text-blue-100 hover:text-white px-2.5 py-1 rounded-full transition cursor-pointer" data-i18n-title="broadcast.updateTime" title="Actualiser l'heure">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span data-i18n="broadcast.updateTime">Actualiser l'heure</span>
+                            </button>
+                        </div>
+                        <button onclick="window.PollApp.toggleBox('poll-box')" class="p-1 hover:bg-white/10 rounded">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                    </div>
+                    <div id="poll-box" class="space-y-4">
+                        <div class="relative">
+                            <input type="text" id="new-poll-title" class="w-full bg-white/10 border-transparent rounded-xl p-3 pr-10 text-sm placeholder:text-blue-200 outline-none focus:bg-white/20 transition">
+                            <button type="button" onclick="window.PollApp.updatePollTime()" id="btn-update-poll-time" class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-blue-200 hover:text-white hover:bg-white/20 rounded-lg transition cursor-pointer group" data-i18n-title="broadcast.updateTime" title="Actualiser l'heure">
+                                <svg class="w-4 h-4 transition-transform group-active:rotate-180 duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            </button>
+                        </div>
+                        <textarea id="new-poll-options" class="w-full bg-white/10 border-transparent rounded-xl p-3 text-sm placeholder:text-blue-200 outline-none focus:bg-white/20 transition" rows="3"></textarea>
+                        <div>
+                            <label class="block text-[11px] font-bold text-blue-100 mb-1" data-i18n="broadcast.multiSelectLabel">Type de vote</label>
+                            <select id="poll-selectable-count" class="w-full bg-white/15 border-transparent text-white rounded-xl p-2.5 text-xs outline-none cursor-pointer">
+                                <option value="1" class="text-slate-900" data-i18n="broadcast.singleSelect">Choix unique (1)</option>
+                                <option value="0" class="text-slate-900" data-i18n="broadcast.multipleSelect">Choix multiple</option>
+                            </select>
+                        </div>
+                        <button onclick="window.PollApp.createNewPoll()" id="btn-create-poll" class="w-full bg-white text-blue-600 font-bold py-3 rounded-xl hover:bg-blue-50 transition" data-i18n="broadcast.launchButton">Launch to Group</button>
+                    </div>
+                </div>
+
+                <!-- Reminder Template Box -->
+                <div class="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xs font-black text-slate-400 uppercase tracking-widest" data-i18n="reminder.title">Reminder Template</h2>
+                        <button onclick="window.PollApp.toggleBox('msg-box')" class="p-1 hover:bg-slate-50 rounded">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                    </div>
+                    <div id="msg-box" class="space-y-3">
+                        <textarea id="default-message-template" class="w-full bg-slate-50 border-transparent rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-slate-200 transition" rows="2"></textarea>
+                        <button id="btn-remind-all" class="w-full flex items-center justify-center space-x-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-2.5 rounded-xl transition shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
+                            <span data-i18n="reminder.remindAll">Relancer tous les retardataires</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Factory Reset Button -->
+                <button onclick="window.PollApp.disconnectWhatsApp()" class="w-full text-[10px] font-bold text-red-400 hover:text-red-600 uppercase tracking-widest py-4 border-2 border-dashed border-slate-100 rounded-3xl transition" data-i18n="auth.factoryReset">
+                    Factory Reset Connection
+                </button>
+            </div>
+
+            <!-- Right Column: Results Table & QR -->
+            <div class="lg:col-span-2">
+                <!-- Results Section -->
+                <div id="results-section" class="hidden bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden">
+                    <div class="px-8 py-6 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center flex-wrap gap-4">
+                        <div>
+                            <h3 class="font-black text-slate-800 text-lg" data-i18n="results.title">Voter Tracking</h3>
+                            <div id="live-indicator" class="flex items-center text-[10px] font-black text-green-500 uppercase tracking-widest mt-1">
+                                <span class="flex h-2 w-2 mr-2 relative">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                </span>
+                                <span data-i18n="results.realtimeActive">Real-time WebSocket Active</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button id="btn-export-csv" class="flex items-center space-x-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-lg transition" title="Export CSV">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                <span data-i18n="results.exportCsv">Export CSV</span>
+                            </button>
+                            <select id="filter-select" class="bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold outline-none focus:ring-2 focus:ring-green-500 text-slate-600 shadow-sm cursor-pointer">
+                                <option value="all" data-i18n="results.allParticipants">All Participants</option>
+                            </select>
+                            <div class="text-2xl font-black text-slate-900" id="stats-summary">0/0</div>
+                        </div>
+                    </div>
+
+                    <div id="loading-table" class="p-20 text-center hidden">
+                        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-green-600 mx-auto mb-4"></div>
+                        <p class="text-slate-400 text-sm font-bold" data-i18n="results.loading">Syncing directly with WhatsApp...</p>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead>
+                                <tr class="text-left text-xs font-black text-slate-500 uppercase tracking-widest border-b border-slate-200">
+                                    <th class="px-8 py-5 cursor-pointer hover:text-slate-900 hover:bg-slate-100 select-none transition rounded-tl-xl" onclick="window.PollApp.toggleSort('name')">
+                                        <span data-i18n="results.participant">Participant</span>
+                                        <span id="sort-name" class="ml-1 inline-block w-3 text-slate-600"></span>
+                                    </th>
+                                    <th class="px-8 py-5 cursor-pointer hover:text-slate-900 hover:bg-slate-100 select-none transition" onclick="window.PollApp.toggleSort('status')">
+                                        <span data-i18n="results.status">Status</span>
+                                        <span id="sort-status" class="ml-1 inline-block w-3 text-slate-600"></span>
+                                    </th>
+                                    <th class="px-8 py-5 text-right" data-i18n="results.action">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="members-list" class="divide-y divide-slate-50"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- QR Section -->
+                <div id="auth-section" class="hidden bg-white rounded-[2rem] shadow-xl border border-slate-100 p-12 text-center">
+                    <h2 class="text-2xl font-black mb-4" data-i18n="auth.linkTitle">Link WhatsApp</h2>
+                    <p class="text-slate-500 mb-8 max-w-xs mx-auto text-sm" data-i18n="auth.linkInstructions">Open WhatsApp > Settings > Linked Devices > Link a Device</p>
+                    <div class="relative inline-block bg-white p-6 rounded-3xl shadow-inner border border-slate-50">
+                        <img id="qr-code" src="" class="w-64 h-64 mx-auto" alt="WhatsApp QR Code">
+                    </div>
+                    <div id="boot-status" class="mt-8 text-xs font-bold text-slate-400 animate-pulse" data-i18n="auth.booting">Booting Engine...</div>
+                </div>
+
+                <!-- Initial Blank / Idle State -->
+                <div id="initial-blank" class="bg-white rounded-[2rem] border-4 border-dashed border-slate-100 p-32 text-center">
+                    <p class="text-slate-300 font-black uppercase tracking-widest text-sm" id="initial-blank-text" data-i18n="results.loading">Syncing Group Data...</p>
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-300 mx-auto mt-4" id="initial-blank-spinner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/js/i18n.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>

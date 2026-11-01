@@ -1,0 +1,26 @@
+# Example Docker Compose Configuration for RedAlert Poll Tracker
+# Copy this file to docker-compose.yml: cp docker-compose.example.yml docker-compose.yml
+
+services:
+  redalert-poll-tracker:
+    image: ghcr.io/mercu7io/redalert-poll-tracker:latest
+    container_name: wa-poll-tracker
+    ports:
+      - "${PORT:-3500}:3500"
+    volumes:
+      - ./.baileys_auth:/app/.baileys_auth
+      - ./data:/app/data
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+
+    # Optional: If you use an external reverse proxy network (e.g., Traefik / Nginx / ironcow_net)
+    # networks:
+    #   - ironcow_net
+
+# Optional network definition
+# networks:
+#   ironcow_net:
+#     external: true

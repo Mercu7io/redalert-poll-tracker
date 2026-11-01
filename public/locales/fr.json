@@ -1,0 +1,82 @@
+{
+    "appTitle": "PollTracker",
+    "login": {
+        "title": "Connexion Live Tracker",
+        "subtitle": "Accès sécurisé à la surveillance WhatsApp",
+        "stay1Hour": "Rester connecté 1 Heure",
+        "stay1Day": "Rester connecté 1 Jour",
+        "stay1Week": "Rester connecté 1 Semaine",
+        "enterDashboard": "Accéder au tableau de bord",
+        "invalidPassword": "Mot de passe incorrect. Réessayez."
+    },
+    "header": {
+        "syncing": "Synchronisation...",
+        "liveConnected": "Liaison directe : Connecté",
+        "liveOffline": "Liaison directe : Hors ligne",
+        "lockScreen": "Verrouiller"
+    },
+    "config": {
+        "title": "Configuration",
+        "groupLabel": "Groupe WhatsApp",
+        "selectGroupPlaceholder": "-- Sélectionner un groupe --",
+        "pollLabel": "Sondage actif",
+        "selectGroupFirst": "Sélectionnez d'abord un groupe",
+        "selectPollPlaceholder": "-- Sélectionner un sondage --",
+        "forceSync": "Forcer la synchronisation"
+    },
+    "broadcast": {
+        "title": "Diffuser un sondage",
+        "titleLabel": "Titre du sondage",
+        "updateTime": "Actualiser l'heure",
+        "launchButton": "Diffuser au groupe",
+        "launching": "Envoi en cours...",
+        "defaultTitle": "[{date} - {time}] - Êtes-vous en sécurité ?",
+        "defaultOptions": "Oui, en sécurité\nBesoin d'aide\nPas de sirène",
+        "multiSelectLabel": "Autoriser plusieurs réponses",
+        "singleSelect": "Choix unique (1)",
+        "multipleSelect": "Choix multiple"
+    },
+    "reminder": {
+        "title": "Modèle de relance",
+        "defaultMessage": "Bonjour [Name], merci de répondre au sondage de sécurité [PollTitle] !",
+        "remind": "Relancer",
+        "remindAll": "Relancer tous les retardataires",
+        "reminding": "Envoi...",
+        "sent": "ENVOYÉ ✓",
+        "retry": "Réessayer"
+    },
+    "results": {
+        "title": "Suivi des votants",
+        "realtimeActive": "WebSocket temps réel actif",
+        "allParticipants": "Tous les participants",
+        "pendingOnly": "En attente uniquement",
+        "respondedOnly": "Ont répondu uniquement",
+        "replyPrefix": "Réponse : {opt}",
+        "exportCsv": "Exporter CSV",
+        "participant": "Participant",
+        "status": "Statut",
+        "action": "Action",
+        "responded": "A répondu",
+        "pending": "En attente",
+        "hiddenContact": "Contact masqué",
+        "hiddenByWhatsApp": "Masqué par WhatsApp",
+        "loading": "Synchronisation directe avec WhatsApp...",
+        "noPolls": "Aucun sondage actif. Diffusez-en un ci-contre !",
+        "selectToStart": "Sélectionnez un groupe pour démarrer le suivi"
+    },
+    "auth": {
+        "linkTitle": "Lier WhatsApp",
+        "linkInstructions": "Ouvrez WhatsApp > Paramètres > Appareils connectés > Connecter un appareil",
+        "ready": "Prêt à scanner",
+        "booting": "Démarrage du moteur...",
+        "factoryReset": "Réinitialiser la connexion",
+        "confirmReset": "Voulez-vous vraiment réinitialiser la connexion WhatsApp ? Vous devrez scanner à nouveau le QR code."
+    },
+    "contacts": {
+        "editName": "Modifier le nom",
+        "promptEditName": "Entrez le nom personnalisé pour {number} :",
+        "nameUpdated": "Nom mis à jour avec succès !",
+        "updateFailed": "Échec de la mise à jour du nom"
+    }
+}
+

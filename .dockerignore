@@ -1,0 +1,7 @@
+node_modules/
+.baileys_auth/
+wwebjs_auth/
+data/
+npm-debug.log
+.env
+docker-compose.yml

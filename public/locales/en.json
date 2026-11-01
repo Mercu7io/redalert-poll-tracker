@@ -1,0 +1,82 @@
+{
+    "appTitle": "PollTracker",
+    "login": {
+        "title": "Live Tracker Login",
+        "subtitle": "Secure access to WhatsApp monitoring",
+        "stay1Hour": "Stay logged in for 1 Hour",
+        "stay1Day": "Stay logged in for 1 Day",
+        "stay1Week": "Stay logged in for 1 Week",
+        "enterDashboard": "Enter Dashboard",
+        "invalidPassword": "Invalid password. Try again."
+    },
+    "header": {
+        "syncing": "Syncing...",
+        "liveConnected": "Live Link: Connected",
+        "liveOffline": "Live Link: Offline",
+        "lockScreen": "Lock Screen"
+    },
+    "config": {
+        "title": "Configuration",
+        "groupLabel": "WhatsApp Group",
+        "selectGroupPlaceholder": "-- Select Group --",
+        "pollLabel": "Active Poll",
+        "selectGroupFirst": "Select a group first",
+        "selectPollPlaceholder": "-- Select Poll --",
+        "forceSync": "Force Sync Data"
+    },
+    "broadcast": {
+        "title": "Broadcast Poll",
+        "titleLabel": "Poll Title",
+        "updateTime": "Update Time",
+        "launchButton": "Launch to Group",
+        "launching": "Launching...",
+        "defaultTitle": "[{date} - {time}] - Are you all safe?",
+        "defaultOptions": "Yes\nNeed help\nNo siren",
+        "multiSelectLabel": "Allow multiple answers",
+        "singleSelect": "Single choice (1)",
+        "multipleSelect": "Multiple choice"
+    },
+    "reminder": {
+        "title": "Reminder Template",
+        "defaultMessage": "Hello [Name], please answer the safety poll [PollTitle]!",
+        "remind": "Remind",
+        "remindAll": "Remind All Pending",
+        "reminding": "Sending...",
+        "sent": "SENT ✓",
+        "retry": "Retry"
+    },
+    "results": {
+        "title": "Voter Tracking",
+        "realtimeActive": "Real-time WebSocket Active",
+        "allParticipants": "All Participants",
+        "pendingOnly": "Pending Only",
+        "respondedOnly": "Responded Only",
+        "replyPrefix": "Reply: {opt}",
+        "exportCsv": "Export CSV",
+        "participant": "Participant",
+        "status": "Status",
+        "action": "Action",
+        "responded": "Responded",
+        "pending": "Pending",
+        "hiddenContact": "Hidden Contact",
+        "hiddenByWhatsApp": "Hidden by WhatsApp",
+        "loading": "Syncing directly with WhatsApp...",
+        "noPolls": "No active polls. Broadcast one above!",
+        "selectToStart": "Select a group to start tracking"
+    },
+    "auth": {
+        "linkTitle": "Link WhatsApp",
+        "linkInstructions": "Open WhatsApp > Settings > Linked Devices > Link a Device",
+        "ready": "Ready to link",
+        "booting": "Booting Engine...",
+        "factoryReset": "Factory Reset Connection",
+        "confirmReset": "Do you really want to reset the WhatsApp connection? You will need to scan the QR code again."
+    },
+    "contacts": {
+        "editName": "Edit name",
+        "promptEditName": "Enter custom name for {number}:",
+        "nameUpdated": "Name updated successfully!",
+        "updateFailed": "Failed to update name"
+    }
+}
+
