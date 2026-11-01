@@ -91,6 +91,14 @@
 
         <!-- Login Section -->
         <div id="login-section" class="max-w-md mx-auto my-12 bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-8 sm:p-10 text-center transition-all duration-300">
+            <!-- Language Switcher on Login Card -->
+            <div class="flex justify-end mb-4">
+                <div class="inline-flex p-1 bg-slate-100/80 rounded-xl border border-slate-200/60 text-xs font-bold space-x-1">
+                    <button type="button" onclick="window.i18n.setLanguage('fr')" class="lang-btn-fr px-2.5 py-1 rounded-lg transition cursor-pointer">🇫🇷 FR</button>
+                    <button type="button" onclick="window.i18n.setLanguage('en')" class="lang-btn-en px-2.5 py-1 rounded-lg transition cursor-pointer">🇬🇧 EN</button>
+                </div>
+            </div>
+
             <div class="relative mx-auto mb-6 w-20 h-20">
                 <div class="absolute inset-0 bg-blue-500/20 rounded-2xl blur-xl"></div>
                 <img src="/images/favicon.png" width="80" height="80" alt="Logo" class="relative rounded-2xl shadow-md border border-slate-100 mx-auto">
@@ -111,15 +119,15 @@
                     </select>
                 </div>
 
-                <button onclick="window.PollApp.login()" class="w-full bg-slate-900 hover:bg-black text-white text-sm font-bold py-4 rounded-2xl transition-all duration-200 shadow-lg shadow-slate-900/10 hover:shadow-xl active:scale-[0.99] cursor-pointer flex items-center justify-center space-x-2" data-i18n="login.enterDashboard">
-                    <span>Accéder au tableau de bord</span>
+                <button onclick="window.PollApp.login()" class="w-full bg-slate-900 hover:bg-black text-white text-sm font-bold py-4 rounded-2xl transition-all duration-200 shadow-lg shadow-slate-900/10 hover:shadow-xl active:scale-[0.99] cursor-pointer flex items-center justify-center space-x-2">
+                    <span data-i18n="login.enterDashboard">Accéder au tableau de bord</span>
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                 </button>
             </div>
 
-            <p id="login-error" class="text-rose-500 text-xs mt-4 hidden font-bold flex items-center justify-center space-x-1" data-i18n="login.invalidPassword">
+            <p id="login-error" class="text-rose-500 text-xs mt-4 hidden font-bold flex items-center justify-center space-x-1">
                 <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <span>Mot de passe incorrect. Réessayez.</span>
+                <span data-i18n="login.invalidPassword">Mot de passe incorrect. Réessayez.</span>
             </p>
         </div>
 

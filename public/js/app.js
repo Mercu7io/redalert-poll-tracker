@@ -816,9 +816,7 @@
         initSavedTemplate();
 
         document.getElementById('lang-select')?.addEventListener('change', async (e) => {
-            await i18n.loadLanguage(e.target.value);
-            els.pollTitle.value = generateDefaultPollTitle();
-            renderTable();
+            await i18n.setLanguage(e.target.value);
         });
 
         els.groups.addEventListener('change', (e) => {
@@ -881,6 +879,8 @@
         toggleSort,
         handleSearch,
         toggleFavoriteGroup,
+        renderTable,
+        generateDefaultPollTitle,
         toggleBox: (id) => document.getElementById(id)?.classList.toggle('hidden')
     };
 })();
