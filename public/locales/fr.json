@@ -22,7 +22,12 @@
         "pollLabel": "Sondage actif",
         "selectGroupFirst": "Sélectionnez d'abord un groupe",
         "selectPollPlaceholder": "-- Sélectionner un sondage --",
-        "forceSync": "Forcer la synchronisation"
+        "forceSync": "Forcer la synchronisation",
+        "favorite": "Favori",
+        "favorited": "Favori ⭐",
+        "favoritesGroup": "⭐ Groupes Favoris",
+        "allGroups": "Tous les groupes",
+        "syncingHistory": "Synchronisation demandée au téléphone..."
     },
     "broadcast": {
         "title": "Diffuser un sondage",

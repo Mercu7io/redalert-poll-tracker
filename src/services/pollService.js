@@ -384,15 +384,40 @@ class PollService {
         return [header.join(','), ...rows].join('\r\n');
     }
 
-    async sendBulkReminders({ whatsappSocket, targetIds, customMessage, delayMs = 1500 }) {
+    async sendBulkReminders({ whatsappSocket, targetIds, targets = [], customMessage, delayMs = 1500, contactRepo = contactRepository }) {
         if (!whatsappSocket) {
             throw new Error('WhatsApp client is offline');
+        }
+
+        const targetMap = new Map();
+        if (Array.isArray(targets)) {
+            targets.forEach(t => {
+                if (t && t.id) targetMap.set(t.id, t.name || '');
+            });
         }
 
         const results = [];
         for (const targetId of targetIds) {
             try {
-                await whatsappSocket.sendMessage(targetId, { text: customMessage });
+                let textToSend = customMessage;
+                if (customMessage.includes('[Name]')) {
+                    let memberName = targetMap.get(targetId);
+                    if (!memberName && contactRepo && contactRepo.resolveBestName) {
+                        memberName = await contactRepo.resolveBestName(targetId);
+                    }
+                    if (!memberName) {
+                        memberName = contactCache.get(targetId) || '';
+                    }
+
+                    if (memberName) {
+                        textToSend = customMessage.replace(/\[Name\]/g, memberName);
+                    } else {
+                        textToSend = customMessage.replace(/\s*\[Name\]\s*/g, ' ').replace(/\s+([,!?.:;])/g, '$1');
+                    }
+                    textToSend = textToSend.replace(/\s{2,}/g, ' ').trim();
+                }
+
+                await whatsappSocket.sendMessage(targetId, { text: textToSend });
                 results.push({ targetId, status: 'sent' });
             } catch (err) {
                 results.push({ targetId, status: 'failed', error: err.message });

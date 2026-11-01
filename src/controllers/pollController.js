@@ -91,7 +91,23 @@ class PollController {
         const { targetId, customMessage } = req.body;
 
         try {
-            await sock.sendMessage(targetId, { text: customMessage });
+            let textToSend = customMessage;
+            if (customMessage && customMessage.includes('[Name]')) {
+                const contactRepo = require('../repositories/contactRepository');
+                const contactCache = require('../services/contactCache');
+                let memberName = await contactRepo.resolveBestName(targetId);
+                if (!memberName) {
+                    memberName = contactCache.get(targetId) || '';
+                }
+                if (memberName) {
+                    textToSend = customMessage.replace(/\[Name\]/g, memberName);
+                } else {
+                    textToSend = customMessage.replace(/\s*\[Name\]\s*/g, ' ').replace(/\s+([,!?.:;])/g, '$1');
+                }
+                textToSend = textToSend.replace(/\s{2,}/g, ' ').trim();
+            }
+
+            await sock.sendMessage(targetId, { text: textToSend });
             return res.json({ success: true });
         } catch (err) {
             return res.status(500).json({ error: err.message });
@@ -104,12 +120,13 @@ class PollController {
             return res.status(401).json({ error: 'WhatsApp client is offline' });
         }
 
-        const { targetIds, customMessage, delayMs } = req.body;
+        const { targetIds, targets, customMessage, delayMs } = req.body;
 
         try {
             const results = await pollService.sendBulkReminders({
                 whatsappSocket: sock,
                 targetIds,
+                targets,
                 customMessage,
                 delayMs
             });

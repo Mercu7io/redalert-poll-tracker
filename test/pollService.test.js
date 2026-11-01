@@ -217,5 +217,65 @@ describe('PollService', () => {
             await closeDatabase();
         });
     });
+
+    describe('sendBulkReminders', () => {
+        it('interpolates [Name] with individual recipient names', async () => {
+            const sentMessages = [];
+            const mockSocket = {
+                sendMessage: async (jid, content) => {
+                    sentMessages.push({ jid, text: content.text });
+                }
+            };
+
+            const targets = [
+                { id: '33611110001@s.whatsapp.net', name: 'Alice' },
+                { id: '33611110002@s.whatsapp.net', name: 'Bob' }
+            ];
+
+            const results = await pollService.sendBulkReminders({
+                whatsappSocket: mockSocket,
+                targetIds: targets.map(t => t.id),
+                targets,
+                customMessage: 'Hello [Name], please answer [PollTitle]!',
+                delayMs: 0
+            });
+
+            assert.equal(results.length, 2);
+            assert.equal(sentMessages.length, 2);
+            assert.equal(sentMessages[0].text, 'Hello Alice, please answer [PollTitle]!');
+            assert.equal(sentMessages[1].text, 'Hello Bob, please answer [PollTitle]!');
+        });
+
+        it('handles missing names gracefully without leaving [Name] placeholder (edge case)', async () => {
+            const sentMessages = [];
+            const mockSocket = {
+                sendMessage: async (jid, content) => {
+                    sentMessages.push({ jid, text: content.text });
+                }
+            };
+
+            const targets = [
+                { id: '33699999999@s.whatsapp.net', name: null }
+            ];
+
+            const mockRepo = {
+                resolveBestName: async () => null
+            };
+
+            const results = await pollService.sendBulkReminders({
+                whatsappSocket: mockSocket,
+                targetIds: targets.map(t => t.id),
+                targets,
+                customMessage: 'Hello [Name], please answer!',
+                delayMs: 0,
+                contactRepo: mockRepo
+            });
+
+            assert.equal(results.length, 1);
+            assert.equal(sentMessages.length, 1);
+            assert.ok(!sentMessages[0].text.includes('[Name]'));
+            assert.equal(sentMessages[0].text, 'Hello, please answer!');
+        });
+    });
 });
 

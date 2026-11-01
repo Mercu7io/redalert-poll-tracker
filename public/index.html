@@ -142,7 +142,13 @@
 
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-xs font-bold text-slate-600 mb-1.5" data-i18n="config.groupLabel">Groupe WhatsApp</label>
+                                <div class="flex items-center justify-between mb-1.5">
+                                    <label class="block text-xs font-bold text-slate-600" data-i18n="config.groupLabel">Groupe WhatsApp</label>
+                                    <button id="btn-fav-group" type="button" onclick="window.PollApp.toggleFavoriteGroup()" class="flex items-center space-x-1 text-[11px] font-bold text-slate-400 hover:text-amber-500 transition cursor-pointer px-2 py-0.5 rounded-lg hover:bg-amber-50" title="Ajouter aux favoris">
+                                        <svg id="fav-star-icon" class="w-3.5 h-3.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>
+                                        <span id="fav-star-text" data-i18n="config.favorite">Favori</span>
+                                    </button>
+                                </div>
                                 <div class="relative">
                                     <select id="group-select" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition cursor-pointer pr-8"></select>
                                 </div>

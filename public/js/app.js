@@ -229,21 +229,102 @@
         checkStatus();
     }
 
-    async function loadGroups() {
+    function getFavoriteGroups() {
+        try {
+            return JSON.parse(localStorage.getItem('wa_favorite_groups') || '[]');
+        } catch {
+            return [];
+        }
+    }
+
+    function saveFavoriteGroups(favs) {
+        localStorage.setItem('wa_favorite_groups', JSON.stringify(favs));
+    }
+
+    function updateFavoriteStarState() {
+        const currentGid = els.groups.value;
+        const favorites = getFavoriteGroups();
+        const isFav = currentGid && favorites.includes(currentGid);
+        const starIcon = document.getElementById('fav-star-icon');
+        const starText = document.getElementById('fav-star-text');
+        if (starIcon) {
+            if (isFav) {
+                starIcon.classList.remove('text-slate-400');
+                starIcon.classList.add('text-amber-500');
+                starIcon.setAttribute('fill', 'currentColor');
+            } else {
+                starIcon.classList.add('text-slate-400');
+                starIcon.classList.remove('text-amber-500');
+                starIcon.setAttribute('fill', 'none');
+            }
+        }
+        if (starText) {
+            starText.textContent = isFav ? (i18n.t('config.favorited') || 'Favori ⭐') : (i18n.t('config.favorite') || 'Favori');
+            starText.className = isFav ? 'text-[11px] font-bold text-amber-600' : 'text-[11px] font-bold text-slate-400';
+        }
+    }
+
+    function toggleFavoriteGroup() {
+        const currentGid = els.groups.value;
+        if (!currentGid) return;
+        let favorites = getFavoriteGroups();
+        if (favorites.includes(currentGid)) {
+            favorites = favorites.filter(id => id !== currentGid);
+        } else {
+            favorites.push(currentGid);
+        }
+        saveFavoriteGroups(favorites);
+        loadGroups(currentGid);
+    }
+
+    async function loadGroups(preserveGid = null) {
         try {
             const res = await api.fetchAuth('/api/groups');
             if (!res.ok) throw new Error('Groups fetch failed');
             const groups = await res.json();
-            els.groups.innerHTML = `<option value="">${i18n.t('config.selectGroupPlaceholder')}</option>`;
-            groups.forEach(g => {
-                const opt = document.createElement('option');
-                opt.value = g.id;
-                opt.textContent = g.name;
-                els.groups.appendChild(opt);
-            });
+            const favorites = getFavoriteGroups();
+            const favGroups = groups.filter(g => favorites.includes(g.id));
+            const otherGroups = groups.filter(g => !favorites.includes(g.id));
 
-            if (groups.length > 0) {
-                els.groups.selectedIndex = 1;
+            els.groups.innerHTML = `<option value="">${i18n.t('config.selectGroupPlaceholder')}</option>`;
+
+            if (favGroups.length > 0) {
+                const optGroupFav = document.createElement('optgroup');
+                optGroupFav.label = i18n.t('config.favoritesGroup') || '⭐ Groupes Favoris';
+                favGroups.forEach(g => {
+                    const opt = document.createElement('option');
+                    opt.value = g.id;
+                    opt.textContent = `⭐ ${g.name}`;
+                    optGroupFav.appendChild(opt);
+                });
+                els.groups.appendChild(optGroupFav);
+            }
+
+            if (otherGroups.length > 0) {
+                const optGroupAll = document.createElement('optgroup');
+                optGroupAll.label = favGroups.length > 0 ? (i18n.t('config.allGroups') || 'Tous les groupes') : '';
+                otherGroups.forEach(g => {
+                    const opt = document.createElement('option');
+                    opt.value = g.id;
+                    opt.textContent = g.name;
+                    optGroupAll.appendChild(opt);
+                });
+                els.groups.appendChild(optGroupAll);
+            }
+
+            const targetGid = preserveGid || localStorage.getItem('wa_selected_group');
+            if (targetGid && groups.some(g => g.id === targetGid)) {
+                els.groups.value = targetGid;
+            } else if (favGroups.length > 0) {
+                els.groups.value = favGroups[0].id;
+            } else if (groups.length > 0) {
+                els.groups.value = groups[0].id;
+            }
+
+            updateFavoriteStarState();
+
+            if (els.groups.value) {
+                localStorage.setItem('wa_selected_group', els.groups.value);
                 els.groups.dispatchEvent(new Event('change'));
             } else {
                 els.blankText.textContent = i18n.t('results.selectToStart');
@@ -270,8 +351,13 @@
             });
             els.polls.disabled = false;
 
+            const savedPid = localStorage.getItem('wa_selected_poll');
             if (current && polls.some(p => p.id === current)) {
                 els.polls.value = current;
+                forceSync();
+            } else if (savedPid && polls.some(p => p.id === savedPid)) {
+                els.polls.value = savedPid;
+                forceSync();
             } else if (polls.length > 0) {
                 els.polls.selectedIndex = 1;
                 forceSync();
@@ -285,12 +371,23 @@
         }
     }
 
-    function forceSync() {
+    async function forceSync(manual = false) {
         const gid = els.groups.value;
         const pid = els.polls.value;
         if (gid && pid) {
+            localStorage.setItem('wa_selected_group', gid);
+            localStorage.setItem('wa_selected_poll', pid);
             els.blank.classList.add('hidden');
             els.results.classList.remove('hidden');
+
+            if (manual) {
+                try {
+                    api.fetchAuth(`/api/sync-history/${encodeURIComponent(gid)}/${encodeURIComponent(pid)}`, {
+                        method: 'POST'
+                    }).catch(() => {});
+                } catch (e) {}
+            }
+
             refreshStats(gid, pid);
         }
     }
@@ -566,7 +663,19 @@
     async function sendReminder(targetId, btn) {
         const raw = els.polls.options[els.polls.selectedIndex]?.text || '';
         const pollTitle = raw.includes(' (') ? raw.substring(0, raw.lastIndexOf(' (')) : raw;
-        const defaultMsg = els.template.value.replace(/\[PollTitle\]/g, pollTitle);
+        const member = globalStats.find(m => m.id === targetId || (m.lid && m.lid === targetId));
+        const memberName = (member && member.name && !member.name.startsWith('+') && member.name !== 'Hidden Contact') 
+            ? member.name 
+            : (member?.number && !member.number.startsWith('Hidden') ? member.number : '');
+
+        let defaultMsg = els.template.value.replace(/\[PollTitle\]/g, pollTitle);
+        if (memberName) {
+            defaultMsg = defaultMsg.replace(/\[Name\]/g, memberName);
+        } else {
+            defaultMsg = defaultMsg.replace(/\s*\[Name\]\s*/g, ' ').replace(/\s+([,!?.:;])/g, '$1');
+        }
+        defaultMsg = defaultMsg.replace(/\s{2,}/g, ' ').trim();
+
         const msg = prompt('Edit reminder message:', defaultMsg);
         if (!msg) return;
 
@@ -610,17 +719,34 @@
         els.btnRemindAll.textContent = i18n.t('reminder.reminding');
 
         try {
-            const targetIds = pendingMembers.map(m => m.id);
+            const targets = pendingMembers.map(m => ({
+                id: m.id,
+                name: (m.name && !m.name.startsWith('+') && m.name !== 'Hidden Contact') ? m.name : ''
+            }));
             const res = await api.fetchAuth('/api/remind-bulk', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetIds, customMessage: defaultMsg, delayMs: 1500 })
+                body: JSON.stringify({ 
+                    targetIds: targets.map(t => t.id), 
+                    targets,
+                    customMessage: defaultMsg, 
+                    delayMs: 1500 
+                })
             });
 
             if (res.ok) {
                 const data = await res.json();
                 alert(`Successfully sent ${data.sentCount} / ${data.total} reminders!`);
             } else {
+                alert('Error sending bulk reminders');
+            }
+        } catch (e) {
+            alert('Failed to send bulk reminders');
+        } finally {
+            els.btnRemindAll.disabled = false;
+            els.btnRemindAll.textContent = i18n.t('reminder.remindAll');
+        }
+    }
                 alert('Error sending bulk reminders');
             }
         } catch (e) {
@@ -697,6 +823,8 @@
 
         els.groups.addEventListener('change', (e) => {
             const gid = e.target.value;
+            localStorage.setItem('wa_selected_group', gid);
+            updateFavoriteStarState();
             els.results.classList.add('hidden');
             els.blank.classList.remove('hidden');
             if (!gid) {
@@ -711,7 +839,10 @@
             refreshPolls(gid, false);
         });
 
-        els.polls.addEventListener('change', () => forceSync());
+        els.polls.addEventListener('change', () => {
+            localStorage.setItem('wa_selected_poll', els.polls.value);
+            forceSync();
+        });
         els.filter.addEventListener('change', renderTable);
         els.btnExportCsv?.addEventListener('click', exportCsv);
         els.btnRemindAll?.addEventListener('click', sendBulkReminders);
@@ -742,13 +873,14 @@
         login,
         logoutWeb,
         disconnectWhatsApp,
-        forceSync,
+        forceSync: () => forceSync(true),
         createNewPoll,
         updatePollTime,
         sendReminder,
         editContactName,
         toggleSort,
         handleSearch,
+        toggleFavoriteGroup,
         toggleBox: (id) => document.getElementById(id)?.classList.toggle('hidden')
     };
 })();

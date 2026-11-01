@@ -22,7 +22,12 @@
         "pollLabel": "Active Poll",
         "selectGroupFirst": "Select a group first",
         "selectPollPlaceholder": "-- Select Poll --",
-        "forceSync": "Force Sync Data"
+        "forceSync": "Force Sync Data",
+        "favorite": "Favorite",
+        "favorited": "Favorite ⭐",
+        "favoritesGroup": "⭐ Favorite Groups",
+        "allGroups": "All Groups",
+        "syncingHistory": "Requesting history sync from phone..."
     },
     "broadcast": {
         "title": "Broadcast Poll",

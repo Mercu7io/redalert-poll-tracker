@@ -31,6 +31,16 @@ class WhatsAppController {
             return res.status(500).json({ error: err.message });
         }
     }
+
+    async syncHistory(req, res) {
+        const { groupId, pollId } = req.params;
+        try {
+            const result = await whatsappService.syncChatHistory(groupId, pollId);
+            return res.json({ success: true, ...result });
+        } catch (err) {
+            return res.status(500).json({ error: err.message });
+        }
+    }
 }
 
 module.exports = new WhatsAppController();

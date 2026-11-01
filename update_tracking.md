@@ -18,5 +18,7 @@
 - 2026-11-01: Ajout du workflow GitHub Actions de build et publication automatique de l'image Docker sur GHCR (ghcr.io), et mise à jour des fichiers d'exemple docker-compose.example.yml et .env.example.
 - 2026-11-01: Double audit de sécurité et assainissement intégral des données de tests (anonymisation complète), purge de l'historique Git et passage du dépôt GitHub en visibilité publique.
 - 2026-11-01: Modernisation complète de l'interface utilisateur sur la branche devs avec design 2026-2027, métriques en temps réel, recherche instantanée et tableau accessible.
+- 2026-11-01: Ajout de la mise en favoris des groupes, de la persistance de sélection au rechargement, du remplacement dynamique de [Name] dans les relances et de la synchronisation d'historique WhatsApp.
+
 
 
