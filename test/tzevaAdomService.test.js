@@ -62,3 +62,4 @@ describe('TzevaAdomService', () => {
         assert.equal(statusNull.hasAlert, false);
     });
 });
+

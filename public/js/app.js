@@ -926,16 +926,21 @@
         }
     }
 
+    let currentCityResultsMap = new Map();
+
     function openCityModal(contactId, contactName, currentCity = '') {
         activeCityContactId = contactId;
+        const member = globalStats.find(m => m.id === contactId || (m.lid && m.lid === contactId));
+        const displayName = contactName || member?.name || member?.number || contactId;
         if (els.cityModalTitle) {
-            els.cityModalTitle.textContent = i18n.t('alerts.chooseCityModalTitle', { name: contactName });
+            els.cityModalTitle.textContent = i18n.t('alerts.chooseCityModalTitle', { name: displayName });
         }
+        const existingCity = currentCity || member?.cityNameEn || member?.cityName || '';
         if (els.citySearchInput) {
-            els.citySearchInput.value = currentCity || '';
+            els.citySearchInput.value = existingCity;
         }
         els.cityModal?.classList.remove('hidden');
-        handleCitySearch(currentCity || '');
+        performCitySearch(existingCity);
         setTimeout(() => els.citySearchInput?.focus(), 50);
     }
 
@@ -944,28 +949,46 @@
         els.cityModal?.classList.add('hidden');
     }
 
+    async function performCitySearch(query) {
+        if (!els.cityResultsList) return;
+        els.cityResultsList.innerHTML = `
+            <div class="p-6 text-center text-xs text-slate-400 font-medium">
+                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                <span>${i18n.t('header.syncing') || 'Searching...'}</span>
+            </div>
+        `;
+
+        try {
+            const res = await api.fetchAuth('/api/cities/search?q=' + encodeURIComponent(query || ''));
+            if (!res.ok) {
+                els.cityResultsList.innerHTML = `<div class="p-4 text-center text-xs text-rose-500 font-medium">Error loading cities (${res.status})</div>`;
+                return;
+            }
+            const cities = await res.json();
+            renderCityResults(cities);
+        } catch (e) {
+            console.error('Failed to search cities', e);
+            els.cityResultsList.innerHTML = `<div class="p-4 text-center text-xs text-rose-500 font-medium">Failed to search cities</div>`;
+        }
+    }
+
     function handleCitySearch(val) {
         clearTimeout(citySearchDebounce);
-        citySearchDebounce = setTimeout(async () => {
-            try {
-                const res = await api.fetchAuth('/api/cities/search?q=' + encodeURIComponent(val || ''));
-                if (!res.ok) return;
-                const cities = await res.json();
-                renderCityResults(cities);
-            } catch (e) {
-                console.error('Failed to search cities', e);
-            }
-        }, 120);
+        citySearchDebounce = setTimeout(() => {
+            performCitySearch(val);
+        }, 150);
     }
 
     function renderCityResults(cities) {
         if (!els.cityResultsList) return;
+        currentCityResultsMap.clear();
         if (!cities || cities.length === 0) {
             els.cityResultsList.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 font-medium">No cities found</div>`;
             return;
         }
+        cities.forEach(c => currentCityResultsMap.set(Number(c.id), c));
         els.cityResultsList.innerHTML = cities.map(c => `
-            <div onclick="window.PollApp.selectContactCity(${JSON.stringify(c).replace(/"/g, '&quot;')})" 
+            <div onclick="window.PollApp.selectContactCityById(${c.id})" 
                  class="p-2.5 hover:bg-blue-50/80 rounded-xl cursor-pointer flex items-center justify-between group transition">
                 <div>
                     <div class="text-xs font-bold text-slate-800 group-hover:text-blue-600">${c.nameEn || c.name}</div>
@@ -978,6 +1001,11 @@
                 ` : ''}
             </div>
         `).join('');
+    }
+
+    function selectContactCityById(cityId) {
+        const cityObj = currentCityResultsMap.get(Number(cityId));
+        if (cityObj) selectContactCity(cityObj);
     }
 
     async function selectContactCity(cityObj) {
@@ -1154,6 +1182,7 @@
         closeCityModal,
         handleCitySearch,
         selectContactCity,
+        selectContactCityById,
         clearContactCity,
         onAlertWindowChange,
         toggleSort,

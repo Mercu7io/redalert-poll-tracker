@@ -77,3 +77,4 @@ class AlertRepository {
 
 module.exports = new AlertRepository();
 module.exports.AlertRepository = AlertRepository;
+

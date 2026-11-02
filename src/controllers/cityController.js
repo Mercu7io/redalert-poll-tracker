@@ -25,3 +25,4 @@ class CityController {
 
 module.exports = new CityController();
 module.exports.CityController = CityController;
+
