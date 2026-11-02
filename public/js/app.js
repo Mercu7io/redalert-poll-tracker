@@ -158,12 +158,14 @@
         });
 
         socket.on('poll_update', async (data) => {
+            console.log('[REALTIME] Received poll_update event:', data);
             if (els.groups.value === data.groupId) {
-                await refreshPolls(data.groupId, true);
-                if (expectingNewPoll) {
-                    els.polls.value = data.pollId;
-                    expectingNewPoll = false;
-                    forceSync();
+                // When any new poll is created in the active group, make it the selected one automatically
+                if (data.pollId) {
+                    localStorage.setItem('wa_selected_poll', data.pollId);
+                    await refreshPolls(data.groupId, true, data.pollId);
+                } else {
+                    await refreshPolls(data.groupId, true);
                 }
             }
         });
@@ -432,12 +434,12 @@
         }
     }
 
-    async function refreshPolls(gid, silent = false) {
+    async function refreshPolls(gid, silent = false, targetPollId = null) {
         try {
             const res = await api.fetchAuth(`/api/polls/${encodeURIComponent(gid)}`);
             if (!res.ok) throw new Error('Failed to load polls');
             const polls = await res.json();
-            const current = els.polls.value;
+            
             els.polls.innerHTML = `<option value="">${i18n.t('config.selectPollPlaceholder')}</option>`;
             polls.forEach(p => {
                 const opt = document.createElement('option');
@@ -447,23 +449,31 @@
             });
             els.polls.disabled = false;
 
-            const savedPid = localStorage.getItem('wa_selected_poll');
-            if (current && polls.some(p => p.id === current)) {
-                els.polls.value = current;
-                forceSync();
+            // Prioritize: targetPollId -> savedPid -> latest poll (polls[0])
+            const savedPid = targetPollId || localStorage.getItem('wa_selected_poll');
+            let chosenPid = '';
+
+            if (targetPollId && polls.some(p => p.id === targetPollId)) {
+                chosenPid = targetPollId;
             } else if (savedPid && polls.some(p => p.id === savedPid)) {
-                els.polls.value = savedPid;
-                forceSync();
+                chosenPid = savedPid;
             } else if (polls.length > 0) {
-                els.polls.selectedIndex = 1;
+                // Default to the newest poll automatically!
+                chosenPid = polls[0].id;
+            }
+
+            if (chosenPid) {
+                els.polls.value = chosenPid;
+                localStorage.setItem('wa_selected_poll', chosenPid);
+                updateActiveContextSubtitle();
                 forceSync();
             } else {
                 els.blankText.textContent = i18n.t('results.noPolls');
                 els.blankSpinner.classList.add('hidden');
+                updateActiveContextSubtitle();
             }
-
-            updateActiveContextSubtitle();
-        } catch {
+        } catch (err) {
+            console.error('Error refreshing polls:', err);
             els.blankText.textContent = i18n.t('results.selectToStart');
             els.blankSpinner.classList.add('hidden');
         }
@@ -507,6 +517,39 @@
             refreshStats(gid, pid, true);
         }
     }
+
+    function onPollChange(pid) {
+        if (!pid) return;
+        if (els.polls && els.polls.value !== pid) {
+            els.polls.value = pid;
+        }
+        localStorage.setItem('wa_selected_poll', pid);
+        updateActiveContextSubtitle();
+        forceSync();
+    }
+
+    function onGroupChange(gid) {
+        if (!gid) {
+            if (els.polls) els.polls.disabled = true;
+            return;
+        }
+        if (els.groups && els.groups.value !== gid) {
+            els.groups.value = gid;
+        }
+        localStorage.setItem('wa_selected_group', gid);
+        updateFavoriteStarState();
+        updateActiveContextSubtitle();
+        els.results.classList.add('hidden');
+        els.blank.classList.remove('hidden');
+        els.blankText.textContent = i18n.t('results.loading');
+        els.blankSpinner.classList.remove('hidden');
+        els.pollTitle.value = generateDefaultPollTitle();
+        els.pollOptions.value = i18n.t('broadcast.defaultOptions');
+        refreshPolls(gid, false);
+    }
+
+    function onDrawerGroupChange(gid) { onGroupChange(gid); }
+    function onDrawerPollChange(pid) { onPollChange(pid); }
 
     async function refreshStats(gid, pid, silent = false) {
         if (!silent) {
@@ -808,7 +851,15 @@
             });
 
             if (res.ok) {
+                const data = await res.json().catch(() => ({}));
                 els.pollTitle.value = generateDefaultPollTitle();
+                const newPollId = data.pollId;
+                if (newPollId) {
+                    localStorage.setItem('wa_selected_poll', newPollId);
+                    await refreshPolls(gid, false, newPollId);
+                } else {
+                    await refreshPolls(gid, false);
+                }
             } else {
                 alert('Failed to launch poll');
             }
@@ -1662,31 +1713,8 @@
             await i18n.setLanguage(e.target.value);
         });
 
-        els.groups.addEventListener('change', (e) => {
-            const gid = e.target.value;
-            localStorage.setItem('wa_selected_group', gid);
-            updateFavoriteStarState();
-            updateActiveContextSubtitle();
-            els.results.classList.add('hidden');
-            els.blank.classList.remove('hidden');
-            if (!gid) {
-                els.polls.disabled = true;
-                return;
-            }
-
-            els.blankText.textContent = i18n.t('results.loading');
-            els.blankSpinner.classList.remove('hidden');
-            els.pollTitle.value = generateDefaultPollTitle();
-            els.pollOptions.value = i18n.t('broadcast.defaultOptions');
-            refreshPolls(gid, false);
-        });
-
-        els.polls.addEventListener('change', () => {
-            const pid = els.polls.value;
-            localStorage.setItem('wa_selected_poll', pid);
-            updateActiveContextSubtitle();
-            forceSync();
-        });
+        els.groups.addEventListener('change', (e) => onGroupChange(e.target.value));
+        els.polls.addEventListener('change', (e) => onPollChange(e.target.value));
         els.filter.addEventListener('change', renderTable);
         els.btnExportCsv?.addEventListener('click', exportCsv);
         els.btnRemindAll?.addEventListener('click', sendBulkReminders);
@@ -1739,6 +1767,10 @@
         selectContactCityById,
         clearContactCity,
         onAlertWindowChange,
+        onPollChange,
+        onGroupChange,
+        onDrawerPollChange,
+        onDrawerGroupChange,
         toggleSort,
         handleSearch,
         toggleFavoriteGroup,

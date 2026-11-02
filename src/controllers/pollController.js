@@ -12,13 +12,31 @@ class PollController {
         const { groupId, title, options, selectableCount = 1 } = req.body;
 
         try {
-            await sock.sendMessage(groupId, {
+            const sentMsg = await sock.sendMessage(groupId, {
                 poll: {
                     name: title,
                     values: options,
                     selectableCount
                 }
             });
+            const pollId = sentMsg?.key?.id;
+            if (pollId) {
+                whatsappService.pollCache.set(pollId, sentMsg);
+                try {
+                    await pollRepository.create({
+                        id: pollId,
+                        groupId,
+                        title,
+                        rawMessage: JSON.stringify(sentMsg)
+                    });
+                } catch {
+                    // Ignore if already inserted by upsert handler
+                }
+                if (whatsappService.io) {
+                    whatsappService.io.emit('poll_update', { groupId, pollId });
+                }
+                return res.json({ success: true, pollId });
+            }
             return res.json({ success: true });
         } catch (err) {
             return res.status(500).json({ error: err.message });

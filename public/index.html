@@ -526,14 +526,14 @@
                                         </button>
                                     </div>
                                     <div class="relative">
-                                        <select id="group-select" class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"></select>
+                                        <select id="group-select" onchange="window.PollApp.onGroupChange(this.value)" class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"></select>
                                     </div>
                                 </div>
 
                                 <div>
                                     <label class="block text-xs font-bold text-slate-600 mb-1.5" data-i18n="config.pollLabel">Sondage actif</label>
                                     <div class="relative">
-                                        <select id="poll-select" class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer" disabled>
+                                        <select id="poll-select" onchange="window.PollApp.onPollChange(this.value)" class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer" disabled>
                                             <option value="" data-i18n="config.selectGroupFirst">Sélectionnez d'abord un groupe</option>
                                         </select>
                                     </div>
@@ -650,8 +650,8 @@
     </div>
 
     <!-- Scripts -->
-    <script src="/js/i18n.js?v=20261102-3"></script>
-    <script src="/js/api.js?v=20261102-3"></script>
-    <script src="/js/app.js?v=20261102-3"></script>
+    <script src="/js/i18n.js?v=20261102-4"></script>
+    <script src="/js/api.js?v=20261102-4"></script>
+    <script src="/js/app.js?v=20261102-4"></script>
 </body>
 </html>
