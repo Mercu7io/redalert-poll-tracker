@@ -26,6 +26,7 @@
 - 2026-11-02: Correction de l'autocomplétion des villes (sélection sécurisée par identifiant numérique unique, affichage immédiat des villes principales et redémarrage du serveur avec le nouveau code).
 - 2026-11-02: Correction de la persistance multi-identités (LID vs JID) de la ville d'un contact et synchronisation bidirectionnelle dans SQLite.
 - 2026-11-02: Sécurisation critique pour situations d'urgence (support des salves d'alertes en tableau, normalisation des timestamps, résilience des correspondances de villes hébreu/anglais, préchargement au démarrage de 900 contacts en mémoire et suite de 60 tests de fiabilité).
+- 2026-11-02: Intégration du nouveau logo officiel « Le Radar Sentinelle » (design 2026 en verre dépoli avec radar de crise et pulsation d'alerte) pour l'en-tête, le favicon et la page de connexion.
 
 
 
