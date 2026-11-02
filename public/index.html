@@ -58,31 +58,6 @@
                     </div>
                 </div>
 
-                <!-- Contextual Header Switcher (Active Group & Poll, shown when logged in) -->
-                <div id="header-context-selector" class="hidden md:flex items-center space-x-2 bg-slate-100/90 border border-slate-200/80 px-2.5 py-1 rounded-2xl shadow-2xs transition">
-                    <div class="flex items-center space-x-1.5">
-                        <span class="text-xs">👥</span>
-                        <select id="group-select" class="bg-transparent hover:bg-white text-slate-800 text-xs font-bold pl-1.5 pr-4 py-1 rounded-xl outline-none cursor-pointer transition focus:bg-white focus:ring-2 focus:ring-blue-500/20 max-w-[170px] truncate"></select>
-                        <button id="btn-fav-group" type="button" onclick="window.PollApp.toggleFavoriteGroup()" class="p-1 text-slate-400 hover:text-amber-500 transition cursor-pointer rounded-lg hover:bg-amber-50" title="Ajouter aux favoris">
-                            <svg id="fav-star-icon" class="w-3.5 h-3.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>
-                            <span id="fav-star-text" class="sr-only" data-i18n="config.favorite">Favori</span>
-                        </button>
-                    </div>
-
-                    <span class="text-slate-300 font-light">/</span>
-
-                    <div class="flex items-center space-x-1.5">
-                        <span class="text-xs">📊</span>
-                        <select id="poll-select" class="bg-transparent hover:bg-white text-slate-800 text-xs font-bold pl-1.5 pr-4 py-1 rounded-xl outline-none cursor-pointer transition focus:bg-white focus:ring-2 focus:ring-blue-500/20 max-w-[210px] truncate" disabled>
-                            <option value="" data-i18n="config.selectGroupFirst">Sélectionnez d'abord un groupe</option>
-                        </select>
-                    </div>
-
-                    <button onclick="window.PollApp.forceSync()" class="p-1 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition cursor-pointer" title="Forcer la synchronisation" data-i18n-title="config.forceSync">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                    </button>
-                </div>
-
                 <!-- Right Actions -->
                 <div class="flex items-center space-x-3">
                     <!-- Navigation Drawer Buttons (shown when logged in) -->
@@ -166,18 +141,6 @@
 
         <!-- Dashboard App Container -->
         <div id="app-container" class="hidden space-y-6">
-
-            <!-- Mobile Context Indicator Bar (Only visible on small screens) -->
-            <div class="md:hidden flex items-center justify-between bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <div class="min-w-0 pr-3">
-                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400" data-i18n="config.title">Configuration</div>
-                    <div class="text-xs font-extrabold text-slate-800 truncate" id="mobile-context-label">-</div>
-                </div>
-                <button type="button" onclick="window.PollApp.openDrawer('settings')" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition cursor-pointer shrink-0">
-                    <span>⚙️</span>
-                    <span data-i18n="drawer.settingsTab">Paramètres</span>
-                </button>
-            </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
@@ -269,12 +232,21 @@
                             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                                 <div>
                                     <h3 class="font-extrabold text-slate-900 text-xl tracking-tight" data-i18n="results.title">Suivi des votants</h3>
-                                    <div id="live-indicator" class="flex items-center text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider mt-1">
-                                        <span class="flex h-2 w-2 mr-2 relative">
-                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                        </span>
-                                        <span data-i18n="results.realtimeActive">Real-time WebSocket Active</span>
+                                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+                                        <div id="live-indicator" class="flex items-center text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider">
+                                            <span class="flex h-2 w-2 mr-2 relative">
+                                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                            </span>
+                                            <span data-i18n="results.realtimeActive">Real-time WebSocket Active</span>
+                                        </div>
+                                        <span class="text-slate-300">•</span>
+                                        <div class="inline-flex items-center space-x-1.5 text-xs text-slate-500">
+                                            <span id="active-context-subtitle" class="font-bold text-slate-700 truncate max-w-[280px]"></span>
+                                            <button type="button" onclick="window.PollApp.openDrawer('settings')" class="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer" title="Paramètres">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -548,20 +520,20 @@
                                 <div>
                                     <div class="flex items-center justify-between mb-1.5">
                                         <label class="block text-xs font-bold text-slate-600" data-i18n="config.groupLabel">Groupe WhatsApp</label>
-                                        <button id="drawer-btn-fav-group" type="button" onclick="window.PollApp.toggleFavoriteGroup()" class="flex items-center space-x-1 text-[11px] font-bold text-slate-400 hover:text-amber-500 transition cursor-pointer px-2 py-0.5 rounded-lg hover:bg-amber-50" title="Ajouter aux favoris">
-                                            <svg id="drawer-fav-star-icon" class="w-3.5 h-3.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>
-                                            <span id="drawer-fav-star-text" data-i18n="config.favorite">Favori</span>
+                                        <button id="btn-fav-group" type="button" onclick="window.PollApp.toggleFavoriteGroup()" class="flex items-center space-x-1 text-[11px] font-bold text-slate-400 hover:text-amber-500 transition cursor-pointer px-2 py-0.5 rounded-lg hover:bg-amber-50" title="Ajouter aux favoris">
+                                            <svg id="fav-star-icon" class="w-3.5 h-3.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>
+                                            <span id="fav-star-text" data-i18n="config.favorite">Favori</span>
                                         </button>
                                     </div>
                                     <div class="relative">
-                                        <select id="drawer-group-select" onchange="window.PollApp.onDrawerGroupChange(this.value)" class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"></select>
+                                        <select id="group-select" class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"></select>
                                     </div>
                                 </div>
 
                                 <div>
                                     <label class="block text-xs font-bold text-slate-600 mb-1.5" data-i18n="config.pollLabel">Sondage actif</label>
                                     <div class="relative">
-                                        <select id="drawer-poll-select" onchange="window.PollApp.onDrawerPollChange(this.value)" class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer">
+                                        <select id="poll-select" class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer" disabled>
                                             <option value="" data-i18n="config.selectGroupFirst">Sélectionnez d'abord un groupe</option>
                                         </select>
                                     </div>
@@ -678,8 +650,8 @@
     </div>
 
     <!-- Scripts -->
-    <script src="/js/i18n.js?v=20261102-2"></script>
-    <script src="/js/api.js?v=20261102-2"></script>
-    <script src="/js/app.js?v=20261102-2"></script>
+    <script src="/js/i18n.js?v=20261102-3"></script>
+    <script src="/js/api.js?v=20261102-3"></script>
+    <script src="/js/app.js?v=20261102-3"></script>
 </body>
 </html>

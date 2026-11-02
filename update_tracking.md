@@ -32,4 +32,4 @@
 
 
 - 2026-11-02: Implémentation du tiroir latéral coulissant (Slide-over drawer), de l'annuaire de contacts avec filtrage par groupe et assignation en lot, des statistiques de crise, de la synchronisation d'historique national Tzofar, de la sauvegarde/restauration ZIP et sécurisation de la recherche de villes avec annulation AbortController.
-- 2026-11-02: Déplacement de la carte Configuration vers le tiroir Paramètres (avec synchronisation bidirectionnelle du groupe, du sondage et des favoris) et intégration d'un sélecteur contextuel ultra-compact dans la barre de navigation supérieure.
+- 2026-11-02: Déplacement complet de la configuration de groupe et sondage dans le tiroir Paramètres et allègement maximal du bandeau de navigation par suppression du sélecteur d'en-tête, avec sous-titre d'accès rapide sous le tableau.
