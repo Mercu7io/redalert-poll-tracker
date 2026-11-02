@@ -52,6 +52,28 @@ const searchCitiesSchema = z.object({
     q: z.string().optional().default('')
 });
 
+const getContactsQuerySchema = z.object({
+    groupId: z.string().optional().default('all'),
+    search: z.string().optional().default('')
+});
+
+const batchUpdateCitySchema = z.object({
+    contactIds: z.array(z.string().min(3)).min(1, 'At least one contact must be selected'),
+    cityId: z.coerce.number().optional().nullable(),
+    cityName: z.string().min(1, 'City name is required'),
+    cityNameEn: z.string().optional().nullable(),
+    cityCountdown: z.coerce.number().optional().nullable()
+});
+
+const analyticsQuerySchema = z.object({
+    period: z.enum(['24h', '7d', '30d', 'all']).default('24h'),
+    groupId: z.string().optional().nullable()
+});
+
+const purgeAlertsSchema = z.object({
+    olderThanDays: z.coerce.number().int().min(1, 'olderThanDays must be at least 1').max(3650).default(30)
+});
+
 module.exports = {
     loginCheckSchema,
     createPollSchema,
@@ -61,6 +83,10 @@ module.exports = {
     pollStatsParamSchema,
     updateContactNameSchema,
     updateContactCitySchema,
-    searchCitiesSchema
+    searchCitiesSchema,
+    getContactsQuerySchema,
+    batchUpdateCitySchema,
+    analyticsQuerySchema,
+    purgeAlertsSchema
 };
 

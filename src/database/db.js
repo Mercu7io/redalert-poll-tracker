@@ -87,6 +87,16 @@ function initDatabase(customPath = null) {
             db.run(`CREATE INDEX IF NOT EXISTS idx_contacts_lid ON contacts(lid)`);
             db.run(`CREATE INDEX IF NOT EXISTS idx_contacts_phone ON contacts(phone_number)`);
 
+            db.run(`
+                CREATE TABLE IF NOT EXISTS contact_groups (
+                    contact_id TEXT NOT NULL,
+                    group_id TEXT NOT NULL,
+                    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (contact_id, group_id)
+                )
+            `);
+            db.run(`CREATE INDEX IF NOT EXISTS idx_contact_groups_group ON contact_groups(group_id)`);
+
             // Synchronize any split/orphaned LID contacts with their JID counterpart
             const syncLidCitiesQuery = `
                 UPDATE contacts 
@@ -124,9 +134,14 @@ function closeDatabase() {
     });
 }
 
+function getDatabasePath() {
+    return config.dbPath;
+}
+
 module.exports = {
     initDatabase,
     getDatabase,
-    closeDatabase
+    closeDatabase,
+    getDatabasePath
 };
 

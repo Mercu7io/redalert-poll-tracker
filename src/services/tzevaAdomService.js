@@ -95,6 +95,9 @@ class TzevaAdomService {
             this.ws.on('message', async (data) => {
                 try {
                     const text = data.toString('utf-8');
+                    if (!text || !text.trim() || text.trim() === 'ping' || text.trim() === 'pong') {
+                        return;
+                    }
                     const parsed = JSON.parse(text);
                     await this.processRawAlert(parsed);
                 } catch (err) {

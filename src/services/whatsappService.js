@@ -414,6 +414,17 @@ class WhatsAppService {
         }
     }
 
+    async getGroupParticipants(groupId) {
+        if (!this.sock || !this.isConnected || !groupId) return [];
+        try {
+            const group = await this.sock.groupMetadata(groupId);
+            return group?.participants || [];
+        } catch (e) {
+            console.warn(`[WA] Could not fetch groupMetadata for ${groupId}:`, e.message);
+            return [];
+        }
+    }
+
     async disconnect() {
         if (this.syncCheckInterval) {
             clearInterval(this.syncCheckInterval);

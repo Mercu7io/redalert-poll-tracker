@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@whiskeysockets/baileys": "7.0.0-rc13",
+    "adm-zip": "^0.6.1",
     "dotenv": "^18.0.9",
     "express": "4.21.1",
     "pino": "^9.0.0",

@@ -200,6 +200,12 @@ class PollService {
         const group = await whatsappSocket.groupMetadata(groupId);
         const membersMap = new Map();
 
+        // Asynchronously record contact-to-group relationships
+        if (group && Array.isArray(group.participants)) {
+            const participantIds = group.participants.map(p => p.id || p.lid).filter(Boolean);
+            contactRepository.saveContactGroupsBatch(participantIds, groupId).catch(() => {});
+        }
+
         for (const p of group.participants || []) {
             const cleanId = p.id ? p.id.split(':')[0] : '';
             let cleanLid = p.lid ? p.lid.split(':')[0] : (cleanId.includes('@lid') ? cleanId : null);

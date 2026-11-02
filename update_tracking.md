@@ -31,3 +31,4 @@
 
 
 
+- 2026-11-02: Implémentation du tiroir latéral coulissant (Slide-over drawer), de l'annuaire de contacts avec filtrage par groupe et assignation en lot, des statistiques de crise, de la synchronisation d'historique national Tzofar, de la sauvegarde/restauration ZIP et sécurisation de la recherche de villes avec annulation AbortController.

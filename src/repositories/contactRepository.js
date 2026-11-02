@@ -223,6 +223,118 @@ class ContactRepository {
             );
         });
     }
+
+    async saveContactGroupsBatch(contactIds, groupId) {
+        if (!groupId || !Array.isArray(contactIds) || contactIds.length === 0) return 0;
+        const db = this.getDb();
+
+        return new Promise((resolve, reject) => {
+            db.serialize(() => {
+                db.run('BEGIN TRANSACTION');
+                const stmt = db.prepare(`
+                    INSERT OR IGNORE INTO contact_groups (contact_id, group_id)
+                    VALUES (?, ?)
+                `);
+
+                let count = 0;
+                for (const cid of contactIds) {
+                    if (cid) {
+                        const clean = String(cid).split(':')[0];
+                        stmt.run([clean, groupId]);
+                        count++;
+                    }
+                }
+
+                stmt.finalize((err) => {
+                    if (err) {
+                        db.run('ROLLBACK');
+                        return reject(err);
+                    }
+                    db.run('COMMIT', (cErr) => {
+                        if (cErr) return reject(cErr);
+                        resolve(count);
+                    });
+                });
+            });
+        });
+    }
+
+    async getContactsByGroup({ groupId = null, search = null } = {}) {
+        const db = this.getDb();
+        const params = [];
+        let query = `
+            SELECT DISTINCT c.id, c.lid, c.phone_number, c.name, c.notify, c.city_id, c.city_name, c.city_name_en, c.city_countdown, c.updated_at
+            FROM contacts c
+        `;
+
+        if (groupId && groupId !== 'all') {
+            query += `
+                INNER JOIN contact_groups cg ON (
+                    c.id = cg.contact_id 
+                    OR (c.lid IS NOT NULL AND c.lid = cg.contact_id)
+                    OR (c.phone_number IS NOT NULL AND c.phone_number = cg.contact_id)
+                    OR (c.phone_number IS NOT NULL AND (c.phone_number || '@s.whatsapp.net') = cg.contact_id)
+                )
+                WHERE cg.group_id = ?
+            `;
+            params.push(groupId);
+        } else {
+            query += ` WHERE 1=1 `;
+        }
+
+        if (search && typeof search === 'string' && search.trim()) {
+            const cleanSearch = `%${search.trim().toLowerCase()}%`;
+            query += `
+                AND (
+                    LOWER(COALESCE(c.name, '')) LIKE ?
+                    OR LOWER(COALESCE(c.notify, '')) LIKE ?
+                    OR LOWER(COALESCE(c.phone_number, '')) LIKE ?
+                    OR LOWER(COALESCE(c.city_name, '')) LIKE ?
+                    OR LOWER(COALESCE(c.city_name_en, '')) LIKE ?
+                )
+            `;
+            params.push(cleanSearch, cleanSearch, cleanSearch, cleanSearch, cleanSearch);
+        }
+
+        query += `
+            ORDER BY 
+                CASE WHEN c.name IS NOT NULL THEN 1 ELSE 0 END DESC,
+                COALESCE(c.name, c.notify, c.phone_number, c.id) ASC
+        `;
+
+        return new Promise((resolve, reject) => {
+            db.all(query, params, (err, rows) => {
+                if (err) return reject(err);
+
+                // Deduplicate in JS by canonical phone or LID
+                const seen = new Set();
+                const unique = [];
+
+                for (const row of rows || []) {
+                    const canonical = row.phone_number 
+                        ? row.phone_number.split('@')[0].replace(/\D/g, '')
+                        : (row.lid ? row.lid.split('@')[0] : row.id.split('@')[0]);
+
+                    if (!seen.has(canonical)) {
+                        seen.add(canonical);
+                        unique.push(row);
+                    }
+                }
+
+                resolve(unique);
+            });
+        });
+    }
+
+    async batchUpdateCity(contactIds, { cityId, cityName, cityNameEn, cityCountdown }) {
+        if (!Array.isArray(contactIds) || contactIds.length === 0) return { updatedCount: 0 };
+        let updatedCount = 0;
+        for (const cid of contactIds) {
+            await this.updateContactCity(cid, { cityId, cityName, cityNameEn, cityCountdown });
+            updatedCount++;
+        }
+        return { updatedCount, cityId, cityName, cityNameEn, cityCountdown };
+    }
 }
 
 module.exports = new ContactRepository();

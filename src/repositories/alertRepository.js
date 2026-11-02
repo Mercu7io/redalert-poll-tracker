@@ -73,6 +73,79 @@ class AlertRepository {
             });
         });
     }
+
+    async saveBatchAlerts(alertsList) {
+        if (!Array.isArray(alertsList) || alertsList.length === 0) return 0;
+        const db = this.getDb();
+
+        return new Promise((resolve, reject) => {
+            db.serialize(() => {
+                db.run('BEGIN TRANSACTION');
+                const stmt = db.prepare(`
+                    INSERT INTO alerts_history (id, category_id, category_title, cities, description, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        category_id = excluded.category_id,
+                        category_title = excluded.category_title,
+                        cities = excluded.cities,
+                        description = COALESCE(excluded.description, alerts_history.description),
+                        timestamp = excluded.timestamp
+                `);
+
+                let insertedCount = 0;
+                for (const a of alertsList) {
+                    if (a && a.id) {
+                        const citiesJson = Array.isArray(a.cities) ? JSON.stringify(a.cities) : (typeof a.cities === 'string' ? a.cities : '[]');
+                        stmt.run([
+                            String(a.id),
+                            Number(a.categoryId || a.cat || 1),
+                            a.categoryTitle || a.title || 'Alert',
+                            citiesJson,
+                            a.description || a.desc || null,
+                            Number(a.timestamp)
+                        ]);
+                        insertedCount++;
+                    }
+                }
+
+                stmt.finalize((err) => {
+                    if (err) {
+                        db.run('ROLLBACK');
+                        return reject(err);
+                    }
+                    db.run('COMMIT', (commitErr) => {
+                        if (commitErr) return reject(commitErr);
+                        resolve(insertedCount);
+                    });
+                });
+            });
+        });
+    }
+
+    async purgeOldAlerts(beforeTimestamp) {
+        const db = this.getDb();
+        const cutoff = Number(beforeTimestamp);
+        return new Promise((resolve, reject) => {
+            db.run(`DELETE FROM alerts_history WHERE timestamp < ?`, [cutoff], function(err) {
+                if (err) return reject(err);
+                resolve({ deletedCount: this.changes, cutoffTimestamp: cutoff });
+            });
+        });
+    }
+
+    async getAlertsCount() {
+        const db = this.getDb();
+        return new Promise((resolve, reject) => {
+            db.get(`SELECT COUNT(*) as count, MIN(timestamp) as oldest, MAX(timestamp) as newest FROM alerts_history`, [], (err, row) => {
+                if (err) return reject(err);
+                resolve({
+                    count: row?.count || 0,
+                    oldestTimestamp: row?.oldest || null,
+                    newestTimestamp: row?.newest || null
+                });
+            });
+        });
+    }
 }
 
 module.exports = new AlertRepository();
