@@ -34,3 +34,4 @@
 - 2026-11-02: Implémentation du tiroir latéral coulissant (Slide-over drawer), de l'annuaire de contacts avec filtrage par groupe et assignation en lot, des statistiques de crise, de la synchronisation d'historique national Tzofar, de la sauvegarde/restauration ZIP et sécurisation de la recherche de villes avec annulation AbortController.
 - 2026-11-02: Déplacement complet de la configuration de groupe et sondage dans le tiroir Paramètres et allègement maximal du bandeau de navigation par suppression du sélecteur d'en-tête, avec sous-titre d'accès rapide sous le tableau.
 - 2026-11-02: Sélection automatique du nouveau sondage dès sa création/diffusion (backend et frontend) et fiabilisation immédiate du changement de sondage actif avec gestionnaires onPollChange et rétrocompatibilité.
+- 2026-11-02: Configuration multi-architectures (linux/amd64 et linux/arm64) dans le workflow GitHub Actions avec QEMU et Buildx pour supporter les NAS ARM.
