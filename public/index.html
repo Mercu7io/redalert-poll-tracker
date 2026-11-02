@@ -60,6 +60,22 @@
 
                 <!-- Right Actions -->
                 <div class="flex items-center space-x-3">
+                    <!-- Navigation Drawer Buttons (shown when logged in) -->
+                    <div id="nav-drawer-buttons" class="hidden items-center space-x-2">
+                        <button onclick="window.PollApp.openDrawer('directory')" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer" title="Annuaire des contacts">
+                            <span>👥</span>
+                            <span class="hidden sm:inline" data-i18n="drawer.contactsTab">Annuaire</span>
+                        </button>
+                        <button onclick="window.PollApp.openDrawer('analytics')" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer" title="Statistiques de crise">
+                            <span>📊</span>
+                            <span class="hidden sm:inline" data-i18n="drawer.statsTab">Statistiques</span>
+                        </button>
+                        <button onclick="window.PollApp.openDrawer('settings')" class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition cursor-pointer" title="Paramètres & Maintenance">
+                            <span>⚙️</span>
+                            <span class="hidden sm:inline" data-i18n="drawer.settingsTab">Paramètres</span>
+                        </button>
+                    </div>
+
                     <!-- Connection Indicator (shown when logged in) -->
                     <div id="connection-indicator" class="hidden inline-flex items-center space-x-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200/60 shadow-sm" data-i18n="header.syncing">
                         <span class="w-2 h-2 rounded-full bg-slate-400 animate-pulse"></span>
@@ -92,7 +108,7 @@
         <!-- Login Section -->
         <div id="login-section" class="max-w-md mx-auto my-12 bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-8 sm:p-10 text-center transition-all duration-300">
             <div class="relative mx-auto mb-6 w-20 h-20">
-                <div class="absolute inset-0 bg-blue-500/20 rounded-2xl blur-xl"></div>
+                <div class="absolute inset-0 bg-emerald-500/20 rounded-2xl blur-xl"></div>
                 <img src="/images/favicon.png" width="80" height="80" alt="Logo" class="relative rounded-2xl shadow-md border border-slate-100 mx-auto">
             </div>
             <h2 class="text-2xl font-extrabold text-slate-900 tracking-tight mb-1.5" data-i18n="login.title">Connexion Live Tracker</h2>
@@ -130,45 +146,6 @@
 
                 <!-- Left Column (Sidebar Controls) -->
                 <div class="lg:col-span-4 space-y-6">
-
-                    <!-- Group & Poll Selector Box -->
-                    <div class="bg-white/90 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-200/80 p-6 transition-all duration-200 hover:shadow-md">
-                        <div class="flex items-center justify-between mb-5">
-                            <div class="flex items-center space-x-2">
-                                <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                                <h2 class="text-xs font-black uppercase tracking-wider text-slate-500" data-i18n="config.title">Configuration</h2>
-                            </div>
-                        </div>
-
-                        <div class="space-y-4">
-                            <div>
-                                <div class="flex items-center justify-between mb-1.5">
-                                    <label class="block text-xs font-bold text-slate-600" data-i18n="config.groupLabel">Groupe WhatsApp</label>
-                                    <button id="btn-fav-group" type="button" onclick="window.PollApp.toggleFavoriteGroup()" class="flex items-center space-x-1 text-[11px] font-bold text-slate-400 hover:text-amber-500 transition cursor-pointer px-2 py-0.5 rounded-lg hover:bg-amber-50" title="Ajouter aux favoris">
-                                        <svg id="fav-star-icon" class="w-3.5 h-3.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>
-                                        <span id="fav-star-text" data-i18n="config.favorite">Favori</span>
-                                    </button>
-                                </div>
-                                <div class="relative">
-                                    <select id="group-select" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition cursor-pointer pr-8"></select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label class="block text-xs font-bold text-slate-600 mb-1.5" data-i18n="config.pollLabel">Sondage actif</label>
-                                <div class="relative">
-                                    <select id="poll-select" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition cursor-pointer pr-8" disabled>
-                                        <option value="" data-i18n="config.selectGroupFirst">Sélectionnez d'abord un groupe</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <button onclick="window.PollApp.forceSync()" class="w-full flex items-center justify-center space-x-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-3 rounded-xl transition-all duration-150 cursor-pointer active:scale-[0.99]">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                                <span data-i18n="config.forceSync">Forcer la synchronisation</span>
-                            </button>
-                        </div>
-                    </div>
 
                     <!-- Broadcast Poll Box -->
                     <div class="bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 rounded-3xl shadow-xl shadow-blue-500/15 p-6 text-white transition-all duration-200">
@@ -236,17 +213,40 @@
                     <!-- Results Section -->
                     <div id="results-section" class="hidden bg-white/95 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-200/80 overflow-hidden transition-all duration-200">
                         
+                        <!-- Top Live Alert Banner -->
+                        <div id="live-alert-banner" class="hidden m-6 mb-0 p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 flex items-center justify-between shadow-sm animate-pulse">
+                            <div class="flex items-center space-x-3">
+                                <span class="text-2xl animate-bounce shrink-0">🚨</span>
+                                <div>
+                                    <div class="text-xs font-black uppercase tracking-wider text-rose-700" id="live-alert-title" data-i18n="alerts.liveAlertBannerTitle">ALERTE ROUGE EN COURS DÉTECTÉE</div>
+                                    <div class="text-xs font-bold text-rose-900 mt-0.5" id="live-alert-desc">...</div>
+                                </div>
+                            </div>
+                            <button type="button" onclick="document.getElementById('live-alert-banner').classList.add('hidden')" class="p-1.5 hover:bg-rose-200/60 rounded-xl text-rose-600 cursor-pointer">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+
                         <!-- Top Header & Metrics Banner -->
                         <div class="px-6 py-6 border-b border-slate-100 bg-slate-50/40">
                             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                                 <div>
                                     <h3 class="font-extrabold text-slate-900 text-xl tracking-tight" data-i18n="results.title">Suivi des votants</h3>
-                                    <div id="live-indicator" class="flex items-center text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider mt-1">
-                                        <span class="flex h-2 w-2 mr-2 relative">
-                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                        </span>
-                                        <span data-i18n="results.realtimeActive">Real-time WebSocket Active</span>
+                                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+                                        <div id="live-indicator" class="flex items-center text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider">
+                                            <span class="flex h-2 w-2 mr-2 relative">
+                                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                            </span>
+                                            <span data-i18n="results.realtimeActive">Real-time WebSocket Active</span>
+                                        </div>
+                                        <span class="text-slate-300">•</span>
+                                        <div class="inline-flex items-center space-x-1.5 text-xs text-slate-500">
+                                            <span id="active-context-subtitle" class="font-bold text-slate-700 truncate max-w-[280px]"></span>
+                                            <button type="button" onclick="window.PollApp.openDrawer('settings')" class="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer" title="Paramètres">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -316,6 +316,10 @@
                                             <span data-i18n="results.participant">Participant</span>
                                             <span id="sort-name" class="ml-1 inline-block w-3 text-slate-600"></span>
                                         </th>
+                                        <th class="px-6 py-4 cursor-pointer hover:text-slate-900 select-none transition" onclick="window.PollApp.toggleSort('location')">
+                                            <span data-i18n="results.locationCol">Localisation & Alerte</span>
+                                            <span id="sort-location" class="ml-1 inline-block w-3 text-slate-600"></span>
+                                        </th>
                                         <th class="px-6 py-4 cursor-pointer hover:text-slate-900 select-none transition" onclick="window.PollApp.toggleSort('status')">
                                             <span data-i18n="results.status">Statut</span>
                                             <span id="sort-status" class="ml-1 inline-block w-3 text-slate-600"></span>
@@ -349,15 +353,305 @@
                         </div>
                         <p class="text-slate-400 font-bold text-xs" id="initial-blank-text" data-i18n="results.selectToStart">Sélectionnez un groupe pour démarrer le suivi</p>
                         <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-400 mx-auto mt-4 hidden" id="initial-blank-spinner"></div>
+                        <div class="mt-4">
+                            <button type="button" onclick="window.PollApp.openDrawer('settings')" class="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition cursor-pointer">
+                                <span>⚙️</span>
+                                <span data-i18n="config.title">Configuration</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </main>
 
+    <!-- Slide-over Drawer (Tiroir Latéral Coulissant 2026) -->
+    <div id="drawer-container" class="fixed inset-0 z-50 overflow-hidden hidden" aria-labelledby="drawer-title" role="dialog" aria-modal="true">
+        <!-- Backdrop -->
+        <div id="drawer-backdrop" onclick="window.PollApp.closeDrawer()" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity duration-300 opacity-0 cursor-pointer"></div>
+
+        <div class="fixed inset-y-0 right-0 max-w-full flex pl-10 pointer-events-none">
+            <div id="drawer-panel" class="w-screen max-w-2xl bg-white shadow-2xl flex flex-col pointer-events-auto transform transition-transform duration-300 ease-in-out translate-x-full">
+                
+                <!-- Drawer Header & Tabs -->
+                <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+                    <div class="flex items-center space-x-2">
+                        <button id="drawer-tab-btn-directory" onclick="window.PollApp.switchDrawerTab('directory')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer bg-blue-600 text-white shadow-xs">
+                            👥 <span data-i18n="drawer.contactsTab">Annuaire</span>
+                        </button>
+                        <button id="drawer-tab-btn-analytics" onclick="window.PollApp.switchDrawerTab('analytics')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer text-slate-600 hover:bg-slate-200/70">
+                            📊 <span data-i18n="drawer.statsTab">Statistiques</span>
+                        </button>
+                        <button id="drawer-tab-btn-settings" onclick="window.PollApp.switchDrawerTab('settings')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer text-slate-600 hover:bg-slate-200/70">
+                            ⚙️ <span data-i18n="drawer.settingsTab">Paramètres</span>
+                        </button>
+                    </div>
+                    <button type="button" onclick="window.PollApp.closeDrawer()" class="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/70 transition cursor-pointer" data-i18n-title="drawer.close" title="Fermer">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Drawer Content Area (Scrollable) -->
+                <div class="flex-1 overflow-y-auto p-6 space-y-6">
+
+                    <!-- TAB 1: DIRECTORY (Annuaire des contacts) -->
+                    <div id="drawer-pane-directory" class="space-y-5">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-base font-extrabold text-slate-900" data-i18n="directory.title">Annuaire des Contacts</h3>
+                                <p class="text-xs text-slate-400 font-medium" data-i18n="directory.subtitle">Gérez les localisations et noms personnalisés par groupe WhatsApp</p>
+                            </div>
+                        </div>
+
+                        <!-- Filters & Search -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1" data-i18n="directory.filterGroup">Filtrer par groupe</label>
+                                <select id="dir-group-filter" onchange="window.PollApp.loadDirectoryContacts()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer">
+                                    <option value="all" data-i18n="directory.allGroups">Tous les groupes</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1" data-i18n="results.searchPlaceholder">Recherche</label>
+                                <div class="relative">
+                                    <input type="text" id="dir-search-input" oninput="window.PollApp.debounceDirSearch()" placeholder="Rechercher par nom, numéro ou ville..." class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2.5 text-xs font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20" data-i18n-placeholder="directory.searchPlaceholder">
+                                    <svg class="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Batch Actions Bar -->
+                        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-200/80 text-xs">
+                            <label class="inline-flex items-center space-x-2 font-bold text-slate-700 cursor-pointer">
+                                <input type="checkbox" id="dir-select-all" onchange="window.PollApp.toggleSelectAllDirectory(this.checked)" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                                <span data-i18n="directory.selectAll">Tout sélectionner</span>
+                            </label>
+                            <div class="flex items-center space-x-2">
+                                <span id="dir-selected-count" class="text-[11px] font-bold text-slate-400">0 sélectionné(s)</span>
+                                <button id="btn-batch-city" onclick="window.PollApp.openBatchCityModal()" disabled class="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:pointer-events-none transition cursor-pointer shadow-2xs">
+                                    📍 Assigner ville en lot
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Directory List Table -->
+                        <div class="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-2xs">
+                            <div id="dir-loading-spinner" class="py-12 text-center text-slate-400 text-xs font-bold">
+                                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                                Chargement de l'annuaire...
+                            </div>
+                            <div id="dir-contacts-table" class="hidden divide-y divide-slate-100 max-h-96 overflow-y-auto">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: ANALYTICS (Statistiques de crise) -->
+                    <div id="drawer-pane-analytics" class="space-y-6 hidden">
+                        <div>
+                            <h3 class="text-base font-extrabold text-slate-900" data-i18n="analytics.title">Statistiques & Analyses de Crise</h3>
+                            <p class="text-xs text-slate-400 font-medium" data-i18n="analytics.subtitle">Rapports des alertes Tzeva Adom et impact sur votre communauté</p>
+                        </div>
+
+                        <!-- Period Pills -->
+                        <div class="flex items-center space-x-2 bg-slate-100 p-1 rounded-2xl w-fit">
+                            <button onclick="window.PollApp.loadAnalytics('24h')" id="analytics-btn-24h" class="px-3 py-1 rounded-xl text-xs font-bold bg-white text-slate-900 shadow-2xs transition cursor-pointer" data-i18n="analytics.period24h">Dernières 24h</button>
+                            <button onclick="window.PollApp.loadAnalytics('7d')" id="analytics-btn-7d" class="px-3 py-1 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer" data-i18n="analytics.period7d">7 derniers jours</button>
+                            <button onclick="window.PollApp.loadAnalytics('30d')" id="analytics-btn-30d" class="px-3 py-1 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer" data-i18n="analytics.period30d">30 derniers jours</button>
+                            <button onclick="window.PollApp.loadAnalytics('all')" id="analytics-btn-all" class="px-3 py-1 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer" data-i18n="analytics.periodAll">Historique complet</button>
+                        </div>
+
+                        <!-- KPI Summary Cards -->
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl text-center">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1" data-i18n="analytics.totalAlerts">Alertes totales</div>
+                                <div id="kpi-total-alerts" class="text-2xl font-black text-slate-900">0</div>
+                            </div>
+                            <div class="bg-rose-50 border border-rose-200/80 p-4 rounded-2xl text-center">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-rose-500 mb-1">Membres Impactés</div>
+                                <div id="kpi-affected-members" class="text-2xl font-black text-rose-700">0</div>
+                            </div>
+                            <div class="bg-emerald-50 border border-emerald-200/80 p-4 rounded-2xl text-center">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Top Ville</div>
+                                <div id="kpi-top-city" class="text-sm font-extrabold text-emerald-800 truncate">-</div>
+                            </div>
+                        </div>
+
+                        <!-- Top Cities -->
+                        <div class="space-y-3">
+                            <h4 class="text-xs font-black uppercase tracking-wider text-slate-500" data-i18n="analytics.topCities">Top Villes Ciblées</h4>
+                            <div id="analytics-top-cities-list" class="space-y-2">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Threat Categories Breakdown -->
+                        <div class="space-y-3">
+                            <h4 class="text-xs font-black uppercase tracking-wider text-slate-500" data-i18n="analytics.threatCategories">Types de Menaces</h4>
+                            <div id="analytics-categories-list" class="grid grid-cols-2 gap-2">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Most Exposed Members -->
+                        <div class="space-y-3">
+                            <h4 class="text-xs font-black uppercase tracking-wider text-slate-500" data-i18n="analytics.affectedMembers">Membres les Plus Exposés</h4>
+                            <div id="analytics-exposed-members-list" class="divide-y divide-slate-100 bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-2xs">
+                                <!-- Populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: SETTINGS (Paramètres & Maintenance) -->
+                    <div id="drawer-pane-settings" class="space-y-6 hidden">
+                        <div>
+                            <h3 class="text-base font-extrabold text-slate-900" data-i18n="settings.title">Paramètres & Maintenance</h3>
+                            <p class="text-xs text-slate-400 font-medium" data-i18n="settings.subtitle">Gestion de la rétention, sauvegardes et configuration</p>
+                        </div>
+
+                        <!-- Section A: Active WhatsApp Group & Poll Configuration -->
+                        <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-4">
+                            <div class="flex items-center space-x-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                                <h4 class="text-xs font-black uppercase tracking-wider text-slate-700" data-i18n="config.title">Configuration</h4>
+                            </div>
+
+                            <div class="space-y-3.5">
+                                <div>
+                                    <div class="flex items-center justify-between mb-1.5">
+                                        <label class="block text-xs font-bold text-slate-600" data-i18n="config.groupLabel">Groupe WhatsApp</label>
+                                        <button id="btn-fav-group" type="button" onclick="window.PollApp.toggleFavoriteGroup()" class="flex items-center space-x-1 text-[11px] font-bold text-slate-400 hover:text-amber-500 transition cursor-pointer px-2 py-0.5 rounded-lg hover:bg-amber-50" title="Ajouter aux favoris">
+                                            <svg id="fav-star-icon" class="w-3.5 h-3.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg>
+                                            <span id="fav-star-text" data-i18n="config.favorite">Favori</span>
+                                        </button>
+                                    </div>
+                                    <div class="relative">
+                                        <select id="group-select" onchange="window.PollApp.onGroupChange(this.value)" class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"></select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1.5" data-i18n="config.pollLabel">Sondage actif</label>
+                                    <div class="relative">
+                                        <select id="poll-select" onchange="window.PollApp.onPollChange(this.value)" class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer" disabled>
+                                            <option value="" data-i18n="config.selectGroupFirst">Sélectionnez d'abord un groupe</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-600 mb-1.5" data-i18n="config.alertWindowLabel">Fenêtre de sensibilité d'alerte</label>
+                                    <select id="drawer-alert-window-select" onchange="window.PollApp.onAlertWindowChange(this.value)" class="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer">
+                                        <option value="5" data-i18n="config.alertWindow5m">5 dernières minutes</option>
+                                        <option value="10" selected data-i18n="config.alertWindow10m">10 dernières minutes (Défaut)</option>
+                                        <option value="15" data-i18n="config.alertWindow15m">15 dernières minutes</option>
+                                        <option value="30" data-i18n="config.alertWindow30m">30 dernières minutes</option>
+                                        <option value="60" data-i18n="config.alertWindow60m">60 dernières minutes</option>
+                                    </select>
+                                </div>
+
+                                <button onclick="window.PollApp.forceSync()" class="w-full flex items-center justify-center space-x-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition cursor-pointer">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                    <span data-i18n="config.forceSync">Forcer la synchronisation</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Section B: Archive & Retention -->
+                        <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h4 class="text-xs font-black uppercase tracking-wider text-slate-600" data-i18n="settings.archiveTitle">Historique & Rétention des Alertes</h4>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">Illimité</span>
+                            </div>
+                            <div class="text-xs text-slate-600 flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200/70">
+                                <span data-i18n="settings.totalStored">Alertes stockées en base locale :</span>
+                                <strong id="settings-stored-alerts-count" class="text-blue-600 font-extrabold text-sm">-</strong>
+                            </div>
+                            <button id="btn-sync-historical" onclick="window.PollApp.syncHistoricalAlerts()" class="w-full flex items-center justify-center space-x-2 py-3 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 transition cursor-pointer shadow-2xs">
+                                <span>📥</span>
+                                <span data-i18n="settings.syncHistorical">Télécharger l'historique national (Tzofar)</span>
+                            </button>
+
+                            <!-- Manual Purge -->
+                            <div class="pt-3 border-t border-slate-200/80 space-y-2">
+                                <label class="block text-xs font-bold text-slate-600" data-i18n="settings.purgeTitle">Nettoyage Manuel des Alertes Obsolètes</label>
+                                <div class="flex items-center space-x-2">
+                                    <select id="purge-days-select" class="flex-1 bg-white border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-800 outline-none cursor-pointer">
+                                        <option value="30" data-i18n="settings.olderThan30d">Plus anciennes que 30 jours</option>
+                                        <option value="90" data-i18n="settings.olderThan90d">Plus anciennes que 90 jours</option>
+                                        <option value="365" data-i18n="settings.olderThan1Year">Plus anciennes que 1 an</option>
+                                    </select>
+                                    <button id="btn-purge-alerts" onclick="window.PollApp.purgeOldAlerts()" class="px-4 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-200 hover:border-transparent transition cursor-pointer">
+                                        <span data-i18n="settings.purgeButton">Purger</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section C: Backup & Restore -->
+                        <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 space-y-4">
+                            <h4 class="text-xs font-black uppercase tracking-wider text-slate-600" data-i18n="settings.backupTitle">Sauvegarde & Restauration Système</h4>
+                            <p class="text-xs text-slate-500 font-medium" data-i18n="settings.backupDesc">Téléchargez une archive .zip complète contenant la base SQLite intègre et la configuration anonymisée.</p>
+                            
+                            <button onclick="window.PollApp.downloadBackupZip()" class="w-full flex items-center justify-center space-x-2 py-3 rounded-xl text-xs font-bold text-white bg-slate-900 hover:bg-black transition cursor-pointer shadow-md">
+                                <span>💾</span>
+                                <span data-i18n="settings.downloadBackup">Télécharger Sauvegarde (.zip)</span>
+                            </button>
+
+                            <div class="pt-3 border-t border-slate-200/80 space-y-2">
+                                <label class="block text-xs font-bold text-slate-600" data-i18n="settings.restoreBackup">Restaurer depuis un fichier (.zip)</label>
+                                <div class="flex items-center space-x-2">
+                                    <input type="file" id="backup-file-input" accept=".zip" class="block w-full text-xs text-slate-500 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+                                    <button id="btn-restore-backup" onclick="window.PollApp.restoreBackupZip()" class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition cursor-pointer whitespace-nowrap shadow-xs">
+                                        Restaurer
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal City Selector -->
+    <div id="city-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm hidden">
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden transform transition-all">
+            <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                    <h3 class="text-base font-extrabold text-slate-900" id="city-modal-title" data-i18n="alerts.chooseCityModalTitle">Définir la localisation</h3>
+                    <p class="text-xs text-slate-400 font-medium mt-0.5" data-i18n="alerts.chooseCityModalSubtitle">Recherchez une ville en Israël pour activer la surveillance Tzeva Adom en temps réel</p>
+                </div>
+                <button type="button" onclick="window.PollApp.closeCityModal()" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="relative">
+                    <input type="text" id="city-search-input" oninput="window.PollApp.handleCitySearch(this.value)" class="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-sm font-semibold text-slate-800 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition shadow-xs" placeholder="Rechercher une ville (ex: Tel Aviv, Ashkelon...)" data-i18n-placeholder="alerts.searchCityPlaceholder">
+                    <svg class="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+                <div id="city-results-list" class="max-h-64 overflow-y-auto space-y-1 divide-y divide-slate-100 pr-1">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+            <div class="p-4 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between">
+                <button type="button" onclick="window.PollApp.clearContactCity()" class="text-xs font-bold text-rose-500 hover:text-rose-700 px-3 py-2 rounded-xl hover:bg-rose-50 transition cursor-pointer" data-i18n="alerts.clearLocation">
+                    Supprimer la localisation
+                </button>
+                <button type="button" onclick="window.PollApp.closeCityModal()" class="text-xs font-bold text-slate-600 hover:text-slate-800 px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 transition cursor-pointer" data-i18n="alerts.cancel">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
-    <script src="/js/i18n.js"></script>
-    <script src="/js/api.js"></script>
-    <script src="/js/app.js"></script>
+    <script src="/js/i18n.js?v=20261102-4"></script>
+    <script src="/js/api.js?v=20261102-4"></script>
+    <script src="/js/app.js?v=20261102-4"></script>
 </body>
 </html>

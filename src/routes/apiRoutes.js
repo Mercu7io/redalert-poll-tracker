@@ -5,6 +5,10 @@ const authController = require('../controllers/authController');
 const whatsappController = require('../controllers/whatsappController');
 const pollController = require('../controllers/pollController');
 const contactController = require('../controllers/contactController');
+const cityController = require('../controllers/cityController');
+const backupController = require('../controllers/backupController');
+const analyticsController = require('../controllers/analyticsController');
+const alertController = require('../controllers/alertController');
 const {
     loginCheckSchema,
     createPollSchema,
@@ -12,7 +16,13 @@ const {
     bulkRemindSchema,
     groupParamSchema,
     pollStatsParamSchema,
-    updateContactNameSchema
+    updateContactNameSchema,
+    updateContactCitySchema,
+    searchCitiesSchema,
+    getContactsQuerySchema,
+    batchUpdateCitySchema,
+    analyticsQuerySchema,
+    purgeAlertsSchema
 } = require('../validators/schemas');
 
 const router = express.Router();
@@ -76,10 +86,55 @@ router.post(
 );
 
 // Contacts
+router.get(
+    '/contacts',
+    validate({ query: getContactsQuerySchema }),
+    contactController.getContacts
+);
+
 router.post(
     '/contacts/update-name',
     validate({ body: updateContactNameSchema }),
     contactController.updateContactName
+);
+
+router.post(
+    '/contacts/update-city',
+    validate({ body: updateContactCitySchema }),
+    contactController.updateContactCity
+);
+
+router.post(
+    '/contacts/batch-city',
+    validate({ body: batchUpdateCitySchema }),
+    contactController.batchUpdateCity
+);
+
+// Crisis Analytics
+router.get(
+    '/stats/summary',
+    validate({ query: analyticsQuerySchema }),
+    analyticsController.getSummary
+);
+
+// Backup & Restore
+router.get('/backup/download', backupController.downloadBackup);
+router.post('/backup/restore', backupController.restoreBackup);
+
+// Cities & Alerts
+router.get(
+    '/cities/search',
+    validate({ query: searchCitiesSchema }),
+    cityController.searchCities
+);
+
+router.get('/alerts/recent', alertController.getRecentAlerts);
+router.get('/alerts/info', alertController.getHistoryInfo);
+router.post('/alerts/sync-historical', alertController.syncHistorical);
+router.post(
+    '/alerts/purge',
+    validate({ body: purgeAlertsSchema }),
+    alertController.purgeAlerts
 );
 
 module.exports = router;

@@ -22,13 +22,15 @@
 - 2026-11-01: Intégration du sélecteur bilingue (FR/EN) directement sur la carte de connexion avec persistance et mise à jour dynamique des textes.
 - 2026-11-01: Correction d'une erreur de syntaxe JS bloquant l'initialisation de l'application, fiabilisation du retour visuel d'erreur de mot de passe et support de la touche Entrée.
 - 2026-11-01: Unification du sélecteur de langue dans la barre supérieure, suppression du sélecteur en doublon sur la carte de connexion et masquage du bouton de déconnexion pour les utilisateurs non authentifiés.
-- 2026-11-01: Correction d'une erreur de syntaxe JS bloquant l'initialisation de l'application, fiabilisation du retour visuel d'erreur de mot de passe et support de la touche Entrée.
-- 2026-11-01: Unification du sélecteur de langue dans la barre supérieure, suppression du sélecteur en doublon sur la carte de connexion et masquage du bouton de déconnexion pour les utilisateurs non authentifiés.
+- 2026-11-02: Intégration complète des alertes Tzeva Adom / Pikud HaOref (WebSocket Tzofar temps réel, 1 451 villes israéliennes, fenêtre d'alerte paramétrable, modal de recherche de ville et colonne dédiée Localisation & Alerte avec indicateurs 🟢/🔴 dynamiques).
+- 2026-11-02: Correction de l'autocomplétion des villes (sélection sécurisée par identifiant numérique unique, affichage immédiat des villes principales et redémarrage du serveur avec le nouveau code).
+- 2026-11-02: Correction de la persistance multi-identités (LID vs JID) de la ville d'un contact et synchronisation bidirectionnelle dans SQLite.
+- 2026-11-02: Sécurisation critique pour situations d'urgence (support des salves d'alertes en tableau, normalisation des timestamps, résilience des correspondances de villes hébreu/anglais, préchargement au démarrage de 900 contacts en mémoire et suite de 60 tests de fiabilité).
+- 2026-11-02: Intégration du nouveau logo officiel « Le Radar Sentinelle » (design 2026 en verre dépoli avec radar de crise et pulsation d'alerte) pour l'en-tête, le favicon et la page de connexion.
 
 
 
 
-
-
-
-
+- 2026-11-02: Implémentation du tiroir latéral coulissant (Slide-over drawer), de l'annuaire de contacts avec filtrage par groupe et assignation en lot, des statistiques de crise, de la synchronisation d'historique national Tzofar, de la sauvegarde/restauration ZIP et sécurisation de la recherche de villes avec annulation AbortController.
+- 2026-11-02: Déplacement complet de la configuration de groupe et sondage dans le tiroir Paramètres et allègement maximal du bandeau de navigation par suppression du sélecteur d'en-tête, avec sous-titre d'accès rapide sous le tableau.
+- 2026-11-02: Sélection automatique du nouveau sondage dès sa création/diffusion (backend et frontend) et fiabilisation immédiate du changement de sondage actif avec gestionnaires onPollChange et rétrocompatibilité.

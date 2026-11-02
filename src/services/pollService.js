@@ -4,6 +4,7 @@ const pollRepository = require('../repositories/pollRepository');
 const voteRepository = require('../repositories/voteRepository');
 const contactRepository = require('../repositories/contactRepository');
 const contactCache = require('./contactCache');
+const tzevaAdomService = require('./tzevaAdomService');
 
 const bufferReviver = (key, value) => {
     if (value && value.type === 'Buffer' && Array.isArray(value.data)) {
@@ -161,7 +162,7 @@ class PollService {
         return userOptions;
     }
 
-    async getPollStats({ whatsappSocket, groupId, pollId }) {
+    async getPollStats({ whatsappSocket, groupId, pollId, alertWindowMinutes = 10 }) {
         if (!whatsappSocket) {
             throw new Error('WhatsApp client is offline');
         }
@@ -199,6 +200,12 @@ class PollService {
         const group = await whatsappSocket.groupMetadata(groupId);
         const membersMap = new Map();
 
+        // Asynchronously record contact-to-group relationships
+        if (group && Array.isArray(group.participants)) {
+            const participantIds = group.participants.map(p => p.id || p.lid).filter(Boolean);
+            contactRepository.saveContactGroupsBatch(participantIds, groupId).catch(() => {});
+        }
+
         for (const p of group.participants || []) {
             const cleanId = p.id ? p.id.split(':')[0] : '';
             let cleanLid = p.lid ? p.lid.split(':')[0] : (cleanId.includes('@lid') ? cleanId : null);
@@ -226,15 +233,28 @@ class PollService {
                 if (mappedPhone) rawPhone = mappedPhone.split('@')[0].replace(/\D/g, '');
             }
 
-            if (!rawPhone || !cleanLid) {
-                const dbContact = await contactRepository.getByIdOrLid(cleanId || cleanLid);
-                if (dbContact) {
-                    if (!rawPhone && dbContact.phone_number) {
-                        rawPhone = dbContact.phone_number.split('@')[0].replace(/\D/g, '');
-                    }
-                    if (!cleanLid && dbContact.lid) {
-                        cleanLid = dbContact.lid.split(':')[0];
-                    }
+            let dbContact = await contactRepository.getByIdOrLid(rawPhone || cleanLid || cleanId);
+            if (dbContact) {
+                if (!rawPhone && dbContact.phone_number) {
+                    rawPhone = dbContact.phone_number.split('@')[0].replace(/\D/g, '');
+                }
+                if (!cleanLid && dbContact.lid) {
+                    cleanLid = dbContact.lid.split(':')[0];
+                }
+            } else if (cleanLid) {
+                dbContact = await contactRepository.getByIdOrLid(cleanLid);
+            } else if (cleanId) {
+                dbContact = await contactRepository.getByIdOrLid(cleanId);
+            }
+
+            if (dbContact && !dbContact.city_name) {
+                if (rawPhone) {
+                    const altByPhone = await contactRepository.getByIdOrLid(rawPhone);
+                    if (altByPhone && altByPhone.city_name) dbContact = altByPhone;
+                }
+                if ((!dbContact || !dbContact.city_name) && cleanLid) {
+                    const altByLid = await contactRepository.getByIdOrLid(cleanLid);
+                    if (altByLid && altByLid.city_name) dbContact = altByLid;
                 }
             }
 
@@ -261,10 +281,12 @@ class PollService {
             let resolvedName = p.name || p.notify || null;
             if (!resolvedName && rawPhone) resolvedName = contactCache.get(`${rawPhone}@s.whatsapp.net`) || contactCache.get(rawPhone);
             if (!resolvedName && cleanLid) resolvedName = contactCache.get(cleanLid);
-            if (!resolvedName) {
-                const dbContact = await contactRepository.getByIdOrLid(rawPhone || cleanLid || cleanId);
-                if (dbContact) resolvedName = dbContact.name || dbContact.notify;
-            }
+            if (!resolvedName && dbContact) resolvedName = dbContact.name || dbContact.notify;
+
+            const cityId = dbContact?.city_id || null;
+            const cityName = dbContact?.city_name || null;
+            const cityNameEn = dbContact?.city_name_en || null;
+            const cityCountdown = dbContact?.city_countdown || null;
 
             if (existing) {
                 if (!existing.phone && rawPhone) existing.phone = rawPhone;
@@ -272,13 +294,23 @@ class PollService {
                 if ((!existing.name || existing.name.startsWith('+') || existing.name === 'Hidden Contact') && resolvedName) {
                     existing.name = resolvedName;
                 }
+                if (!existing.cityName && cityName) {
+                    existing.cityId = cityId;
+                    existing.cityName = cityName;
+                    existing.cityNameEn = cityNameEn;
+                    existing.cityCountdown = cityCountdown;
+                }
             } else {
                 const newMember = {
                     id: rawPhone ? `${rawPhone}@s.whatsapp.net` : (cleanId || cleanLid),
                     lid: cleanLid,
                     phone: rawPhone,
                     name: resolvedName || (rawPhone ? `+${rawPhone}` : 'Hidden Contact'),
-                    number: rawPhone ? `+${rawPhone}` : 'Hidden by WhatsApp'
+                    number: rawPhone ? `+${rawPhone}` : 'Hidden by WhatsApp',
+                    cityId,
+                    cityName,
+                    cityNameEn,
+                    cityCountdown
                 };
                 membersMap.set(canonicalKey, newMember);
                 if (rawPhone) membersMap.set(rawPhone, newMember);
@@ -302,11 +334,31 @@ class PollService {
             if (m.phone && baseVoter && baseVoter === m.phone) return true;
             if (m.lid && baseVoter && baseVoter === m.lid.split('@')[0]) return true;
 
-            const mapped = contactCache.lidMap.get(cleanVoterId);
-            if (mapped) {
-                if (mapped === m.id || mapped === m.lid) return true;
-                if (m.phone && mapped.split('@')[0].replace(/\D/g, '') === m.phone) return true;
+            // Bidirectional check via voter ID
+            const mappedVoter = contactCache.lidMap.get(cleanVoterId);
+            if (mappedVoter) {
+                if (mappedVoter === m.id || mappedVoter === m.lid) return true;
+                if (m.phone && mappedVoter.split('@')[0].replace(/\D/g, '') === m.phone) return true;
             }
+
+            // Bidirectional check via member ID
+            if (m.id) {
+                const mappedMember = contactCache.lidMap.get(m.id);
+                if (mappedMember) {
+                    if (mappedMember === cleanVoterId) return true;
+                    if (baseVoter && mappedMember.split('@')[0].replace(/\D/g, '') === baseVoter) return true;
+                }
+            }
+
+            // Bidirectional check via member LID
+            if (m.lid) {
+                const mappedMemberLid = contactCache.lidMap.get(m.lid);
+                if (mappedMemberLid) {
+                    if (mappedMemberLid === cleanVoterId) return true;
+                    if (baseVoter && mappedMemberLid.split('@')[0].replace(/\D/g, '') === baseVoter) return true;
+                }
+            }
+
             return false;
         };
 
@@ -324,12 +376,18 @@ class PollService {
 
             const hasVoted = !!(vote && Array.isArray(parsedOptions) && parsedOptions.length > 0);
             const displayName = (vote && vote.voter_name && !vote.voter_name.startsWith('+')) ? vote.voter_name : m.name;
+            const alertStatus = tzevaAdomService.checkCityAlertStatus(m.cityName || m.cityNameEn, alertWindowMinutes);
 
             return {
                 id: m.id,
                 lid: m.lid,
                 name: displayName,
                 number: m.number,
+                cityId: m.cityId || null,
+                cityName: m.cityName || null,
+                cityNameEn: m.cityNameEn || null,
+                cityCountdown: m.cityCountdown || null,
+                alertStatus,
                 hasVoted,
                 options: hasVoted ? parsedOptions : [],
                 timestamp: vote ? vote.timestamp : null
@@ -353,11 +411,27 @@ class PollService {
                 const isLid = cleanVoterId.includes('@lid');
                 const baseId = cleanVoterId.split('@')[0].replace(/\D/g, '');
 
+                let dbVoter = await contactRepository.getByIdOrLid(cleanVoterId);
+                if (dbVoter && !dbVoter.city_name && baseId) {
+                    const altVoter = await contactRepository.getByIdOrLid(baseId);
+                    if (altVoter && altVoter.city_name) dbVoter = altVoter;
+                }
+                const cityId = dbVoter?.city_id || null;
+                const cityName = dbVoter?.city_name || null;
+                const cityNameEn = dbVoter?.city_name_en || null;
+                const cityCountdown = dbVoter?.city_countdown || null;
+                const alertStatus = tzevaAdomService.checkCityAlertStatus(cityName || cityNameEn, alertWindowMinutes);
+
                 stats.push({
                     id: cleanVoterId,
                     lid: isLid ? cleanVoterId : null,
                     name: v.voter_name || contactCache.get(cleanVoterId) || (isLid ? 'Hidden Contact' : `+${baseId}`),
                     number: isLid ? 'Hidden by WhatsApp' : `+${baseId}`,
+                    cityId,
+                    cityName,
+                    cityNameEn,
+                    cityCountdown,
+                    alertStatus,
                     hasVoted,
                     options: hasVoted ? parsedOptions : [],
                     timestamp: v.timestamp || null

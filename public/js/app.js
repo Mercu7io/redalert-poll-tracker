@@ -21,7 +21,15 @@
         blankSpinner: document.getElementById('initial-blank-spinner'),
         loadingTable: document.getElementById('loading-table'),
         btnExportCsv: document.getElementById('btn-export-csv'),
-        btnRemindAll: document.getElementById('btn-remind-all')
+        btnRemindAll: document.getElementById('btn-remind-all'),
+        alertWindowSelect: document.getElementById('alert-window-select'),
+        liveAlertBanner: document.getElementById('live-alert-banner'),
+        liveAlertTitle: document.getElementById('live-alert-title'),
+        liveAlertDesc: document.getElementById('live-alert-desc'),
+        cityModal: document.getElementById('city-modal'),
+        cityModalTitle: document.getElementById('city-modal-title'),
+        citySearchInput: document.getElementById('city-search-input'),
+        cityResultsList: document.getElementById('city-results-list')
     };
 
     let socket = null;
@@ -30,6 +38,8 @@
     let globalPollOptions = [];
     let expectingNewPoll = false;
     let currentSort = { column: 'name', dir: 'asc' };
+    let activeCityContactId = null;
+    let citySearchDebounce = null;
 
     const optionColors = ['bg-green-500', 'bg-blue-500', 'bg-yellow-400', 'bg-purple-500', 'bg-orange-500', 'bg-teal-500'];
 
@@ -148,12 +158,14 @@
         });
 
         socket.on('poll_update', async (data) => {
+            console.log('[REALTIME] Received poll_update event:', data);
             if (els.groups.value === data.groupId) {
-                await refreshPolls(data.groupId, true);
-                if (expectingNewPoll) {
-                    els.polls.value = data.pollId;
-                    expectingNewPoll = false;
-                    forceSync();
+                // When any new poll is created in the active group, make it the selected one automatically
+                if (data.pollId) {
+                    localStorage.setItem('wa_selected_poll', data.pollId);
+                    await refreshPolls(data.groupId, true, data.pollId);
+                } else {
+                    await refreshPolls(data.groupId, true);
                 }
             }
         });
@@ -167,6 +179,41 @@
                 }
             }
         });
+
+        socket.on('alert_event', (data) => {
+            handleIncomingAlert(data);
+        });
+    }
+
+    function handleIncomingAlert(alertData) {
+        if (!alertData) return;
+        console.log('[REALTIME] Incoming Tzeva Adom alert:', alertData);
+        if (els.liveAlertBanner) {
+            const rawTs = Number(alertData.timestamp) || Date.now();
+            const tsMs = rawTs < 1e11 ? rawTs * 1000 : rawTs;
+            const timeStr = new Date(tsMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const catLabel = i18n.currentLanguage === 'fr' 
+                ? (alertData.categoryFr || alertData.categoryLabelFr || alertData.categoryEn || alertData.categoryLabelEn || alertData.categoryTitle || 'Alerte') 
+                : (alertData.categoryEn || alertData.categoryLabelEn || alertData.categoryTitle || 'Alert');
+            const alertIcon = alertData.icon || alertData.categoryIcon || '🚨';
+            if (els.liveAlertTitle) {
+                els.liveAlertTitle.textContent = `${alertIcon} ${catLabel} [${timeStr}]`;
+            }
+            if (els.liveAlertDesc) {
+                const cityList = (alertData.citiesEn && alertData.citiesEn.length > 0) ? alertData.citiesEn : alertData.cities;
+                const displayCities = (cityList || []).slice(0, 8).join(', ');
+                const extra = (cityList && cityList.length > 8) ? ` +${cityList.length - 8}` : '';
+                els.liveAlertDesc.textContent = `${displayCities}${extra}`;
+            }
+            els.liveAlertBanner.classList.remove('hidden');
+        }
+
+        // Auto-refresh poll stats if a group and poll are currently selected
+        const gid = els.groups.value;
+        const pid = els.polls.value;
+        if (gid && pid) {
+            refreshStats(gid, pid, true);
+        }
     }
 
     async function checkStatus() {
@@ -217,6 +264,8 @@
                 els.app.classList.remove('hidden');
                 document.getElementById('btn-logout')?.classList.remove('hidden');
                 document.getElementById('connection-indicator')?.classList.remove('hidden');
+                document.getElementById('nav-drawer-buttons')?.classList.remove('hidden');
+                document.getElementById('nav-drawer-buttons')?.classList.add('flex');
                 initSocket();
                 checkStatus();
             } else {
@@ -245,6 +294,9 @@
         els.login.classList.remove('hidden');
         document.getElementById('btn-logout')?.classList.add('hidden');
         document.getElementById('connection-indicator')?.classList.add('hidden');
+        document.getElementById('nav-drawer-buttons')?.classList.add('hidden');
+        document.getElementById('nav-drawer-buttons')?.classList.remove('flex');
+        closeDrawer();
         if (socket) {
             socket.disconnect();
             socket = null;
@@ -275,6 +327,7 @@
         const isFav = currentGid && favorites.includes(currentGid);
         const starIcon = document.getElementById('fav-star-icon');
         const starText = document.getElementById('fav-star-text');
+
         if (starIcon) {
             if (isFav) {
                 starIcon.classList.remove('text-slate-400');
@@ -286,9 +339,26 @@
                 starIcon.setAttribute('fill', 'none');
             }
         }
+
         if (starText) {
             starText.textContent = isFav ? (i18n.t('config.favorited') || 'Favori ⭐') : (i18n.t('config.favorite') || 'Favori');
             starText.className = isFav ? 'text-[11px] font-bold text-amber-600' : 'text-[11px] font-bold text-slate-400';
+        }
+
+        updateActiveContextSubtitle();
+    }
+
+    function updateActiveContextSubtitle() {
+        const subtitleEl = document.getElementById('active-context-subtitle');
+        if (!subtitleEl) return;
+        const groupName = els.groups?.options[els.groups.selectedIndex]?.text || '';
+        const pollName = els.polls?.options[els.polls.selectedIndex]?.text || '';
+        if (groupName && pollName) {
+            subtitleEl.textContent = `${groupName} / ${pollName.split('(')[0].trim()}`;
+        } else if (groupName) {
+            subtitleEl.textContent = groupName;
+        } else {
+            subtitleEl.textContent = i18n.t('config.title') || 'Configuration';
         }
     }
 
@@ -364,12 +434,12 @@
         }
     }
 
-    async function refreshPolls(gid, silent = false) {
+    async function refreshPolls(gid, silent = false, targetPollId = null) {
         try {
             const res = await api.fetchAuth(`/api/polls/${encodeURIComponent(gid)}`);
             if (!res.ok) throw new Error('Failed to load polls');
             const polls = await res.json();
-            const current = els.polls.value;
+            
             els.polls.innerHTML = `<option value="">${i18n.t('config.selectPollPlaceholder')}</option>`;
             polls.forEach(p => {
                 const opt = document.createElement('option');
@@ -379,21 +449,31 @@
             });
             els.polls.disabled = false;
 
-            const savedPid = localStorage.getItem('wa_selected_poll');
-            if (current && polls.some(p => p.id === current)) {
-                els.polls.value = current;
-                forceSync();
+            // Prioritize: targetPollId -> savedPid -> latest poll (polls[0])
+            const savedPid = targetPollId || localStorage.getItem('wa_selected_poll');
+            let chosenPid = '';
+
+            if (targetPollId && polls.some(p => p.id === targetPollId)) {
+                chosenPid = targetPollId;
             } else if (savedPid && polls.some(p => p.id === savedPid)) {
-                els.polls.value = savedPid;
-                forceSync();
+                chosenPid = savedPid;
             } else if (polls.length > 0) {
-                els.polls.selectedIndex = 1;
+                // Default to the newest poll automatically!
+                chosenPid = polls[0].id;
+            }
+
+            if (chosenPid) {
+                els.polls.value = chosenPid;
+                localStorage.setItem('wa_selected_poll', chosenPid);
+                updateActiveContextSubtitle();
                 forceSync();
             } else {
                 els.blankText.textContent = i18n.t('results.noPolls');
                 els.blankSpinner.classList.add('hidden');
+                updateActiveContextSubtitle();
             }
-        } catch {
+        } catch (err) {
+            console.error('Error refreshing polls:', err);
             els.blankText.textContent = i18n.t('results.selectToStart');
             els.blankSpinner.classList.add('hidden');
         }
@@ -420,13 +500,65 @@
         }
     }
 
+    function getAlertWindow() {
+        return parseInt(localStorage.getItem('wa_alert_window') || '10', 10);
+    }
+
+    function onAlertWindowChange(val) {
+        localStorage.setItem('wa_alert_window', val);
+        if (els.alertWindowSelect) els.alertWindowSelect.value = val;
+        const drawerSelect = document.getElementById('drawer-alert-window-select');
+        if (drawerSelect) drawerSelect.value = val;
+        const labelEl = document.getElementById('active-alert-window-label');
+        if (labelEl) labelEl.textContent = `${val} min`;
+        const gid = els.groups.value;
+        const pid = els.polls.value;
+        if (gid && pid) {
+            refreshStats(gid, pid, true);
+        }
+    }
+
+    function onPollChange(pid) {
+        if (!pid) return;
+        if (els.polls && els.polls.value !== pid) {
+            els.polls.value = pid;
+        }
+        localStorage.setItem('wa_selected_poll', pid);
+        updateActiveContextSubtitle();
+        forceSync();
+    }
+
+    function onGroupChange(gid) {
+        if (!gid) {
+            if (els.polls) els.polls.disabled = true;
+            return;
+        }
+        if (els.groups && els.groups.value !== gid) {
+            els.groups.value = gid;
+        }
+        localStorage.setItem('wa_selected_group', gid);
+        updateFavoriteStarState();
+        updateActiveContextSubtitle();
+        els.results.classList.add('hidden');
+        els.blank.classList.remove('hidden');
+        els.blankText.textContent = i18n.t('results.loading');
+        els.blankSpinner.classList.remove('hidden');
+        els.pollTitle.value = generateDefaultPollTitle();
+        els.pollOptions.value = i18n.t('broadcast.defaultOptions');
+        refreshPolls(gid, false);
+    }
+
+    function onDrawerGroupChange(gid) { onGroupChange(gid); }
+    function onDrawerPollChange(pid) { onPollChange(pid); }
+
     async function refreshStats(gid, pid, silent = false) {
         if (!silent) {
             els.members.innerHTML = '';
             els.loadingTable.classList.remove('hidden');
         }
         try {
-            const res = await api.fetchAuth(`/api/poll-stats/${encodeURIComponent(gid)}/${encodeURIComponent(pid)}`);
+            const alertWindow = getAlertWindow();
+            const res = await api.fetchAuth(`/api/poll-stats/${encodeURIComponent(gid)}/${encodeURIComponent(pid)}?alertWindow=${alertWindow}`);
             if (!res.ok) throw new Error('Stats fetch error');
             const responseData = await res.json();
 
@@ -510,7 +642,8 @@
             if (searchQuery) {
                 const nameMatch = (m.name || '').toLowerCase().includes(searchQuery);
                 const numberMatch = (m.number || '').toLowerCase().includes(searchQuery);
-                if (!nameMatch && !numberMatch) return false;
+                const cityMatch = (m.cityNameEn || '').toLowerCase().includes(searchQuery) || (m.cityName || '').toLowerCase().includes(searchQuery);
+                if (!nameMatch && !numberMatch && !cityMatch) return false;
             }
 
             if (filterVal === 'all') return true;
@@ -537,6 +670,9 @@
             if (currentSort.column === 'name') {
                 valA = (a.name || '').toLowerCase();
                 valB = (b.name || '').toLowerCase();
+            } else if (currentSort.column === 'location') {
+                valA = (a.cityNameEn || a.cityName || '').toLowerCase();
+                valB = (b.cityNameEn || b.cityName || '').toLowerCase();
             } else if (currentSort.column === 'status') {
                 valA = a.hasVoted ? 1 : 0;
                 valB = b.hasVoted ? 1 : 0;
@@ -546,8 +682,12 @@
             return 0;
         });
 
-        document.getElementById('sort-name').textContent = currentSort.column === 'name' ? (currentSort.dir === 'asc' ? '▲' : '▼') : '';
-        document.getElementById('sort-status').textContent = currentSort.column === 'status' ? (currentSort.dir === 'asc' ? '▲' : '▼') : '';
+        const sortNameEl = document.getElementById('sort-name');
+        if (sortNameEl) sortNameEl.textContent = currentSort.column === 'name' ? (currentSort.dir === 'asc' ? '▲' : '▼') : '';
+        const sortLocEl = document.getElementById('sort-location');
+        if (sortLocEl) sortLocEl.textContent = currentSort.column === 'location' ? (currentSort.dir === 'asc' ? '▲' : '▼') : '';
+        const sortStatusEl = document.getElementById('sort-status');
+        if (sortStatusEl) sortStatusEl.textContent = currentSort.column === 'status' ? (currentSort.dir === 'asc' ? '▲' : '▼') : '';
 
         filteredStats.forEach(m => {
             let displayOptions = [];
@@ -603,6 +743,41 @@
                             <div class="text-[11px] font-mono text-slate-500 mt-0.5">${m.number || ''}</div>
                         </div>
                     </div>
+                </td>
+                <td class="px-6 py-4 text-xs">
+                    ${(m.cityNameEn || m.cityName) ? `
+                        <div class="space-y-1.5">
+                            <div class="flex items-center space-x-1.5">
+                                <span class="font-bold text-slate-800 text-xs">${m.cityNameEn || m.cityName}</span>
+                                ${m.cityCountdown ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-600 border border-slate-200/80">⏱️ ${m.cityCountdown}s</span>` : ''}
+                                <button onclick="window.PollApp.openCityModal('${m.id}', '${safeName}', '${(m.cityNameEn || m.cityName).replace(/'/g, "\\'")}')" 
+                                        class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-600 p-0.5 rounded hover:bg-slate-100 transition-opacity cursor-pointer" 
+                                        title="${i18n.t('alerts.chooseCityModalTitle', { name: safeName })}">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                </button>
+                            </div>
+                            <div>
+                                ${(m.alertStatus && m.alertStatus.hasAlert) ? `
+                                    <span class="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-300 shadow-xs animate-pulse">
+                                        <span class="w-2 h-2 rounded-full bg-rose-600"></span>
+                                        <span>${m.alertStatus.icon || m.alertStatus.alert?.categoryIcon || '🚨'} ${i18n.currentLanguage === 'fr' ? (m.alertStatus.categoryFr || m.alertStatus.alert?.categoryLabelFr || m.alertStatus.categoryEn || m.alertStatus.alert?.categoryLabelEn || 'Alerte') : (m.alertStatus.categoryEn || m.alertStatus.alert?.categoryLabelEn || 'Alert')}</span>
+                                        <span class="text-[9px] text-rose-500 font-mono">(${m.alertStatus.minutesAgo ?? m.alertStatus.alert?.minutesAgo ?? 0}m)</span>
+                                    </span>
+                                ` : `
+                                    <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/70 shadow-2xs">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                        <span>${i18n.t('results.safe')}</span>
+                                        <span class="text-[9px] text-emerald-600/70 font-mono">(${getAlertWindow()}m)</span>
+                                    </span>
+                                `}
+                            </div>
+                        </div>
+                    ` : `
+                        <button onclick="window.PollApp.openCityModal('${m.id}', '${safeName}')" class="inline-flex items-center space-x-1 text-[11px] font-semibold text-slate-400 hover:text-blue-600 hover:bg-blue-50/80 px-2.5 py-1 rounded-lg border border-dashed border-slate-200 transition cursor-pointer">
+                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            <span>${i18n.t('results.setLocation')}</span>
+                        </button>
+                    `}
                 </td>
                 <td class="px-6 py-4 text-xs">
                     <div class="flex items-center space-x-2">
@@ -676,7 +851,15 @@
             });
 
             if (res.ok) {
+                const data = await res.json().catch(() => ({}));
                 els.pollTitle.value = generateDefaultPollTitle();
+                const newPollId = data.pollId;
+                if (newPollId) {
+                    localStorage.setItem('wa_selected_poll', newPollId);
+                    await refreshPolls(gid, false, newPollId);
+                } else {
+                    await refreshPolls(gid, false);
+                }
             } else {
                 alert('Failed to launch poll');
             }
@@ -829,10 +1012,687 @@
         }
     }
 
+    let currentCityResultsMap = new Map();
+    let activeCitySearchAbort = null;
+
+    function openCityModal(contactId, contactName, currentCity = '') {
+        activeCityContactId = contactId;
+        const member = globalStats.find(m => m.id === contactId || (m.lid && m.lid === contactId));
+        const displayName = contactName || member?.name || member?.number || contactId;
+        const titleEl = document.getElementById('city-modal-title');
+        if (titleEl) {
+            titleEl.textContent = i18n.t('alerts.chooseCityModalTitle', { name: displayName });
+        }
+        const existingCity = currentCity || member?.cityNameEn || member?.cityName || '';
+        const inputEl = document.getElementById('city-search-input');
+        if (inputEl) {
+            inputEl.value = existingCity;
+        }
+        const modalEl = document.getElementById('city-modal');
+        modalEl?.classList.remove('hidden');
+        performCitySearch(existingCity);
+        setTimeout(() => inputEl?.focus(), 50);
+    }
+
+    function closeCityModal() {
+        activeCityContactId = null;
+        isBatchCityMode = false;
+        if (activeCitySearchAbort) {
+            activeCitySearchAbort.abort();
+            activeCitySearchAbort = null;
+        }
+        const modalEl = document.getElementById('city-modal');
+        modalEl?.classList.add('hidden');
+    }
+
+    async function performCitySearch(query) {
+        const listEl = document.getElementById('city-results-list');
+        if (!listEl) return;
+
+        if (activeCitySearchAbort) {
+            activeCitySearchAbort.abort();
+        }
+        activeCitySearchAbort = new AbortController();
+
+        listEl.innerHTML = `
+            <div class="p-6 text-center text-xs text-slate-400 font-medium">
+                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                <span>${i18n.t('header.syncing') || 'Searching...'}</span>
+            </div>
+        `;
+
+        try {
+            const res = await api.fetchAuth('/api/cities/search?q=' + encodeURIComponent(query || ''), {
+                signal: activeCitySearchAbort.signal
+            });
+            if (!res.ok) {
+                listEl.innerHTML = `<div class="p-4 text-center text-xs text-rose-500 font-medium">Error loading cities (${res.status})</div>`;
+                return;
+            }
+            const cities = await res.json();
+            renderCityResults(cities);
+        } catch (e) {
+            if (e.name === 'AbortError') return;
+            console.error('Failed to search cities', e);
+            listEl.innerHTML = `<div class="p-4 text-center text-xs text-rose-500 font-medium">Failed to search cities</div>`;
+        }
+    }
+
+    function handleCitySearch(val) {
+        clearTimeout(citySearchDebounce);
+        citySearchDebounce = setTimeout(() => {
+            performCitySearch(val);
+        }, 120);
+    }
+
+    function renderCityResults(cities) {
+        const listEl = document.getElementById('city-results-list');
+        if (!listEl) return;
+        currentCityResultsMap.clear();
+        if (!cities || cities.length === 0) {
+            listEl.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 font-medium">No cities found</div>`;
+            return;
+        }
+        cities.forEach(c => currentCityResultsMap.set(Number(c.id), c));
+        listEl.innerHTML = cities.map(c => `
+            <div onclick="window.PollApp.selectContactCityById(${c.id})" 
+                 class="p-2.5 hover:bg-blue-50/80 rounded-xl cursor-pointer flex items-center justify-between group transition">
+                <div>
+                    <div class="text-xs font-bold text-slate-800 group-hover:text-blue-600">${c.nameEn || c.name}</div>
+                    <div class="text-[11px] text-slate-400 font-medium">${c.name} ${c.zoneEn ? `• ${c.zoneEn}` : ''}</div>
+                </div>
+                ${c.countdown !== undefined && c.countdown !== null ? `
+                    <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 group-hover:bg-blue-100 group-hover:text-blue-700 text-slate-600 border border-slate-200/80">
+                        ⏱️ ${c.countdown}s
+                    </span>
+                ` : ''}
+            </div>
+        `).join('');
+    }
+
+    function selectContactCityById(cityId) {
+        const cityObj = currentCityResultsMap.get(Number(cityId));
+        if (cityObj) selectContactCity(cityObj);
+    }
+
+    async function selectContactCity(cityObj) {
+        if (!cityObj) return;
+
+        if (isBatchCityMode && selectedDirectoryContactIds.size > 0) {
+            const contactIds = Array.from(selectedDirectoryContactIds);
+            try {
+                const res = await api.fetchAuth('/api/contacts/batch-city', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contactIds,
+                        cityId: cityObj.id,
+                        cityName: cityObj.name,
+                        cityNameEn: cityObj.nameEn,
+                        cityCountdown: cityObj.countdown
+                    })
+                });
+                if (res.ok) {
+                    closeCityModal();
+                    selectedDirectoryContactIds.clear();
+                    updateBatchBar();
+                    await loadDirectoryContacts();
+                    const gid = els.groups.value;
+                    const pid = els.polls.value;
+                    if (gid && pid) refreshStats(gid, pid, true);
+                } else {
+                    alert(i18n.t('directory.batchFailed'));
+                }
+            } catch {
+                alert(i18n.t('directory.batchFailed'));
+            }
+            return;
+        }
+
+        if (!activeCityContactId) return;
+        const targetId = activeCityContactId;
+        try {
+            const res = await api.fetchAuth('/api/contacts/update-city', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: targetId,
+                    cityId: cityObj.id,
+                    cityName: cityObj.name,
+                    cityNameEn: cityObj.nameEn,
+                    cityCountdown: cityObj.countdown
+                })
+            });
+
+            if (res.ok) {
+                globalStats.forEach(m => {
+                    const cleanMemberId = m.id.split('@')[0];
+                    const cleanTargetId = targetId.split('@')[0];
+                    const cleanLid = m.lid ? m.lid.split('@')[0] : '';
+                    if (m.id === targetId || cleanMemberId === cleanTargetId || (m.lid && m.lid === targetId) || (cleanLid && cleanLid === cleanTargetId)) {
+                        m.cityId = cityObj.id;
+                        m.cityName = cityObj.name;
+                        m.cityNameEn = cityObj.nameEn;
+                        m.cityCountdown = cityObj.countdown;
+                    }
+                });
+                closeCityModal();
+                renderTable();
+                if (document.getElementById('drawer-container') && !document.getElementById('drawer-container').classList.contains('hidden')) {
+                    loadDirectoryContacts();
+                }
+                const gid = els.groups.value;
+                const pid = els.polls.value;
+                if (gid && pid) refreshStats(gid, pid, true);
+            } else {
+                alert(i18n.t('alerts.cityUpdateFailed'));
+            }
+        } catch (e) {
+            alert(i18n.t('alerts.cityUpdateFailed'));
+        }
+    }
+
+    async function clearContactCity() {
+        if (!activeCityContactId) return;
+        const targetId = activeCityContactId;
+        try {
+            const res = await api.fetchAuth('/api/contacts/update-city', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: targetId,
+                    cityId: null,
+                    cityName: null,
+                    cityNameEn: null,
+                    cityCountdown: null
+                })
+            });
+
+            if (res.ok) {
+                globalStats.forEach(m => {
+                    const cleanMemberId = m.id.split('@')[0];
+                    const cleanTargetId = targetId.split('@')[0];
+                    const cleanLid = m.lid ? m.lid.split('@')[0] : '';
+                    if (m.id === targetId || cleanMemberId === cleanTargetId || (m.lid && m.lid === targetId) || (cleanLid && cleanLid === cleanTargetId)) {
+                        m.cityId = null;
+                        m.cityName = null;
+                        m.cityNameEn = null;
+                        m.cityCountdown = null;
+                        m.alertStatus = null;
+                    }
+                });
+                closeCityModal();
+                renderTable();
+                const gid = els.groups.value;
+                const pid = els.polls.value;
+                if (gid && pid) refreshStats(gid, pid, true);
+            } else {
+                alert(i18n.t('alerts.cityUpdateFailed'));
+            }
+        } catch (e) {
+            alert(i18n.t('alerts.cityUpdateFailed'));
+        }
+    }
+
+    // ==========================================
+    // Slide-over Drawer & Secondary Panes (2026)
+    // ==========================================
+    let currentDrawerTab = 'directory';
+    let selectedDirectoryContactIds = new Set();
+    let directorySearchTimeout = null;
+    let isBatchCityMode = false;
+
+    function openDrawer(tab = 'directory') {
+        const container = document.getElementById('drawer-container');
+        const backdrop = document.getElementById('drawer-backdrop');
+        const panel = document.getElementById('drawer-panel');
+
+        if (!container || !panel) return;
+
+        container.classList.remove('hidden');
+        requestAnimationFrame(() => {
+            backdrop?.classList.remove('opacity-0');
+            backdrop?.classList.add('opacity-100');
+            panel.classList.remove('translate-x-full');
+            panel.classList.add('translate-x-0');
+        });
+
+        switchDrawerTab(tab);
+    }
+
+    function closeDrawer() {
+        const container = document.getElementById('drawer-container');
+        const backdrop = document.getElementById('drawer-backdrop');
+        const panel = document.getElementById('drawer-panel');
+
+        if (!container || !panel) return;
+
+        backdrop?.classList.remove('opacity-100');
+        backdrop?.classList.add('opacity-0');
+        panel.classList.remove('translate-x-0');
+        panel.classList.add('translate-x-full');
+
+        setTimeout(() => {
+            container.classList.add('hidden');
+        }, 300);
+    }
+
+    function switchDrawerTab(tab) {
+        currentDrawerTab = tab;
+        const tabs = ['directory', 'analytics', 'settings'];
+
+        tabs.forEach(t => {
+            const btn = document.getElementById(`drawer-tab-btn-${t}`);
+            const pane = document.getElementById(`drawer-pane-${t}`);
+            if (t === tab) {
+                btn?.classList.add('bg-blue-600', 'text-white', 'shadow-xs');
+                btn?.classList.remove('text-slate-600', 'hover:bg-slate-200/70');
+                pane?.classList.remove('hidden');
+            } else {
+                btn?.classList.remove('bg-blue-600', 'text-white', 'shadow-xs');
+                btn?.classList.add('text-slate-600', 'hover:bg-slate-200/70');
+                pane?.classList.add('hidden');
+            }
+        });
+
+        if (tab === 'directory') {
+            syncDirGroupFilterOptions();
+            loadDirectoryContacts();
+        } else if (tab === 'analytics') {
+            loadAnalytics('24h');
+        } else if (tab === 'settings') {
+            loadSettingsInfo();
+        }
+    }
+
+    function syncDirGroupFilterOptions() {
+        const dirSelect = document.getElementById('dir-group-filter');
+        if (!dirSelect || !els.groups) return;
+
+        const currentVal = dirSelect.value || 'all';
+        dirSelect.innerHTML = `<option value="all">${i18n.t('directory.allGroups')}</option>`;
+
+        Array.from(els.groups.options).forEach(opt => {
+            if (opt.value && opt.value !== '') {
+                const newOpt = document.createElement('option');
+                newOpt.value = opt.value;
+                newOpt.textContent = opt.textContent;
+                dirSelect.appendChild(newOpt);
+            }
+        });
+
+        if (els.groups.value) {
+            dirSelect.value = els.groups.value;
+        } else {
+            dirSelect.value = currentVal;
+        }
+    }
+
+    function debounceDirSearch() {
+        clearTimeout(directorySearchTimeout);
+        directorySearchTimeout = setTimeout(() => {
+            loadDirectoryContacts();
+        }, 200);
+    }
+
+    async function loadDirectoryContacts() {
+        const groupFilter = document.getElementById('dir-group-filter')?.value || 'all';
+        const searchVal = document.getElementById('dir-search-input')?.value || '';
+        const spinner = document.getElementById('dir-loading-spinner');
+        const table = document.getElementById('dir-contacts-table');
+
+        spinner?.classList.remove('hidden');
+        table?.classList.add('hidden');
+
+        try {
+            const url = `/api/contacts?groupId=${encodeURIComponent(groupFilter)}&search=${encodeURIComponent(searchVal)}`;
+            const res = await api.fetchAuth(url);
+            if (res.ok) {
+                const data = await res.json();
+                renderDirectoryContacts(data.contacts || []);
+            }
+        } catch (e) {
+            console.error('[DIR] Load error:', e);
+        } finally {
+            spinner?.classList.add('hidden');
+            table?.classList.remove('hidden');
+        }
+    }
+
+    function renderDirectoryContacts(contacts) {
+        const table = document.getElementById('dir-contacts-table');
+        if (!table) return;
+
+        if (!contacts || contacts.length === 0) {
+            table.innerHTML = `<div class="p-8 text-center text-slate-400 text-xs font-semibold">${i18n.t('directory.noContactsFound')}</div>`;
+            return;
+        }
+
+        table.innerHTML = contacts.map(c => {
+            const isChecked = selectedDirectoryContactIds.has(c.id);
+            const safeName = (c.name || c.notify || 'Hidden Contact').replace(/'/g, "\\'");
+            const displayName = c.name || c.notify || (c.phone_number ? `+${c.phone_number.split('@')[0].replace(/\D/g, '')}` : 'Hidden Contact');
+            const displayPhone = c.phone_number ? `+${c.phone_number.split('@')[0].replace(/\D/g, '')}` : (c.lid || '');
+            const hasCity = !!(c.city_name_en || c.city_name);
+
+            return `
+                <div class="p-3.5 hover:bg-slate-50 flex items-center justify-between text-xs transition">
+                    <div class="flex items-center space-x-3 min-w-0">
+                        <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="window.PollApp.toggleSelectContact('${c.id}', this.checked)" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                        <div class="min-w-0">
+                            <div class="flex items-center space-x-1.5">
+                                <span class="font-extrabold text-slate-800 truncate">${displayName}</span>
+                                <button onclick="window.PollApp.editContactName('${c.id}', '${safeName}', '${displayPhone}')" class="text-slate-400 hover:text-blue-600 p-0.5 rounded cursor-pointer" title="${i18n.t('contacts.editName')}">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                </button>
+                            </div>
+                            <div class="text-[11px] font-mono text-slate-400 mt-0.5">${displayPhone}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 shrink-0">
+                        ${hasCity ? `
+                            <button onclick="window.PollApp.openCityModal('${c.id}', '${safeName}', '${(c.city_name_en || c.city_name).replace(/'/g, "\\'")}')" class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200/80 font-bold text-[11px] transition cursor-pointer">
+                                <span>📍</span>
+                                <span>${c.city_name_en || c.city_name}</span>
+                                ${c.city_countdown ? `<span class="text-[10px] text-slate-500 font-mono">(${c.city_countdown}s)</span>` : ''}
+                            </button>
+                        ` : `
+                            <button onclick="window.PollApp.openCityModal('${c.id}', '${safeName}')" class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl text-[11px] font-bold text-slate-400 hover:text-blue-600 border border-dashed border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition cursor-pointer">
+                                <span>+</span>
+                                <span>${i18n.t('results.setLocation')}</span>
+                            </button>
+                        `}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function toggleSelectAllDirectory(checked) {
+        const checkboxes = document.querySelectorAll('#dir-contacts-table input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            cb.checked = checked;
+        });
+
+        if (checked) {
+            checkboxes.forEach(cb => {
+                const match = cb.getAttribute('onchange')?.match(/'([^']+)'/);
+                if (match && match[1]) selectedDirectoryContactIds.add(match[1]);
+            });
+        } else {
+            selectedDirectoryContactIds.clear();
+        }
+        updateBatchBar();
+    }
+
+    function toggleSelectContact(contactId, checked) {
+        if (checked) {
+            selectedDirectoryContactIds.add(contactId);
+        } else {
+            selectedDirectoryContactIds.delete(contactId);
+        }
+        updateBatchBar();
+    }
+
+    function updateBatchBar() {
+        const count = selectedDirectoryContactIds.size;
+        const countEl = document.getElementById('dir-selected-count');
+        const btnBatch = document.getElementById('btn-batch-city');
+
+        if (countEl) countEl.textContent = i18n.t('directory.selectedCount', { count });
+        if (btnBatch) {
+            btnBatch.disabled = count === 0;
+            btnBatch.textContent = i18n.t('directory.batchAssignCity', { count });
+        }
+    }
+
+    function openBatchCityModal() {
+        if (selectedDirectoryContactIds.size === 0) return;
+        isBatchCityMode = true;
+        activeCityContactId = null;
+        if (els.cityModalTitle) {
+            els.cityModalTitle.textContent = i18n.t('directory.batchModalTitle', { count: selectedDirectoryContactIds.size });
+        }
+        if (els.citySearchInput) {
+            els.citySearchInput.value = '';
+        }
+        els.cityModal?.classList.remove('hidden');
+        performCitySearch('');
+        setTimeout(() => els.citySearchInput?.focus(), 50);
+    }
+
+    async function loadAnalytics(period = '24h') {
+        const periods = ['24h', '7d', '30d', 'all'];
+        periods.forEach(p => {
+            const btn = document.getElementById(`analytics-btn-${p}`);
+            if (p === period) {
+                btn?.classList.add('bg-white', 'text-slate-900', 'shadow-2xs');
+                btn?.classList.remove('text-slate-600');
+            } else {
+                btn?.classList.remove('bg-white', 'text-slate-900', 'shadow-2xs');
+                btn?.classList.add('text-slate-600');
+            }
+        });
+
+        try {
+            const res = await api.fetchAuth(`/api/stats/summary?period=${period}`);
+            if (res.ok) {
+                const data = await res.json();
+                renderAnalytics(data);
+            }
+        } catch (e) {
+            console.error('[ANALYTICS] Load error:', e);
+        }
+    }
+
+    function renderAnalytics(data) {
+        const totalEl = document.getElementById('kpi-total-alerts');
+        const affectedEl = document.getElementById('kpi-affected-members');
+        const topCityEl = document.getElementById('kpi-top-city');
+
+        if (totalEl) totalEl.textContent = data.totalAlerts || 0;
+        if (affectedEl) affectedEl.textContent = data.affectedMembersCount || 0;
+        if (topCityEl) topCityEl.textContent = data.topCities && data.topCities[0] ? `${data.topCities[0].cityName} (${data.topCities[0].count})` : '-';
+
+        const citiesList = document.getElementById('analytics-top-cities-list');
+        if (citiesList) {
+            if (!data.topCities || data.topCities.length === 0) {
+                citiesList.innerHTML = `<div class="p-3 text-center text-xs text-slate-400 font-medium">${i18n.t('analytics.noData')}</div>`;
+            } else {
+                const maxCount = Math.max(...data.topCities.map(c => c.count), 1);
+                citiesList.innerHTML = data.topCities.map(c => {
+                    const pct = Math.round((c.count / maxCount) * 100);
+                    return `
+                        <div class="space-y-1">
+                            <div class="flex items-center justify-between text-xs font-bold">
+                                <span class="text-slate-800">${c.cityName}</span>
+                                <span class="text-slate-500 font-mono">${c.count}</span>
+                            </div>
+                            <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                                <div class="bg-rose-500 h-2 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        const catList = document.getElementById('analytics-categories-list');
+        if (catList) {
+            if (!data.categoryBreakdown || data.categoryBreakdown.length === 0) {
+                catList.innerHTML = `<div class="col-span-2 p-3 text-center text-xs text-slate-400 font-medium">${i18n.t('analytics.noData')}</div>`;
+            } else {
+                catList.innerHTML = data.categoryBreakdown.map(cat => `
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 flex items-center justify-between text-xs">
+                        <div class="flex items-center space-x-1.5 truncate">
+                            <span>${cat.icon}</span>
+                            <span class="font-bold text-slate-800 truncate">${i18n.currentLanguage === 'fr' ? cat.titleFr : cat.titleEn}</span>
+                        </div>
+                        <span class="font-mono font-extrabold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200/80">${cat.count}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        const exposedList = document.getElementById('analytics-exposed-members-list');
+        if (exposedList) {
+            if (!data.memberImpact || data.memberImpact.length === 0) {
+                exposedList.innerHTML = `<div class="p-6 text-center text-xs text-slate-400 font-medium">${i18n.t('analytics.noData')}</div>`;
+            } else {
+                exposedList.innerHTML = data.memberImpact.map((m, idx) => `
+                    <div class="p-3 flex items-center justify-between text-xs">
+                        <div class="flex items-center space-x-2.5">
+                            <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${idx === 0 ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-600'}">${idx + 1}</span>
+                            <div>
+                                <div class="font-extrabold text-slate-800">${m.name}</div>
+                                <div class="text-[10px] text-slate-400">${m.cityNameEn || m.cityName} ${m.countdown ? `• ⏱️ ${m.countdown}s` : ''}</div>
+                            </div>
+                        </div>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black bg-rose-50 text-rose-700 border border-rose-200">
+                            🚨 ${m.alertsReceived}
+                        </span>
+                    </div>
+                `).join('');
+            }
+        }
+    }
+
+    async function loadSettingsInfo() {
+        try {
+            const res = await api.fetchAuth('/api/alerts/info');
+            if (res.ok) {
+                const info = await res.json();
+                const countEl = document.getElementById('settings-stored-alerts-count');
+                if (countEl) countEl.textContent = `${info.count || 0} alertes`;
+            }
+            const drawerSelect = document.getElementById('drawer-alert-window-select');
+            if (drawerSelect) drawerSelect.value = getAlertWindow();
+        } catch (e) {
+            console.error('[SETTINGS] Load error:', e);
+        }
+    }
+
+    async function syncHistoricalAlerts() {
+        const btn = document.getElementById('btn-sync-historical');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-600 mr-2 inline-block"></div> ${i18n.t('settings.syncing')}`;
+        }
+        try {
+            const res = await api.fetchAuth('/api/alerts/sync-historical', { method: 'POST' });
+            if (res.ok) {
+                const data = await res.json();
+                alert(i18n.t('settings.syncSuccess', { count: data.syncedCount }));
+                loadSettingsInfo();
+            } else {
+                alert('Sync failed');
+            }
+        } catch {
+            alert('Sync failed');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<span>📥</span> <span>${i18n.t('settings.syncHistorical')}</span>`;
+            }
+        }
+    }
+
+    async function purgeOldAlerts() {
+        const days = document.getElementById('purge-days-select')?.value || 30;
+        if (!confirm(i18n.t('settings.purgeConfirm'))) return;
+
+        const btn = document.getElementById('btn-purge-alerts');
+        if (btn) btn.disabled = true;
+
+        try {
+            const res = await api.fetchAuth('/api/alerts/purge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ olderThanDays: parseInt(days, 10) })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                alert(i18n.t('settings.purgeSuccess', { count: data.deletedCount }));
+                loadSettingsInfo();
+            } else {
+                alert('Purge failed');
+            }
+        } catch {
+            alert('Purge failed');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    async function downloadBackupZip() {
+        try {
+            const res = await api.fetchAuth('/api/backup/download');
+            if (!res.ok) throw new Error('Backup failed');
+            const blob = await res.blob();
+            const filename = res.headers.get('content-disposition')?.match(/filename="([^"]+)"/)?.[1] || 'backup-wa-tracker.zip';
+
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            alert('Failed to download backup: ' + e.message);
+        }
+    }
+
+    async function restoreBackupZip() {
+        const input = document.getElementById('backup-file-input');
+        const file = input?.files?.[0];
+        if (!file || !file.name.endsWith('.zip')) {
+            alert(i18n.t('settings.restoreInvalid'));
+            return;
+        }
+
+        if (!confirm(i18n.t('settings.restoreConfirm'))) return;
+
+        const btn = document.getElementById('btn-restore-backup');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = i18n.t('settings.restoring');
+        }
+
+        try {
+            const res = await api.fetchAuth('/api/backup/restore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/zip' },
+                body: file
+            });
+
+            if (res.ok) {
+                alert(i18n.t('settings.restoreSuccess'));
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                const errData = await res.json();
+                alert('Restore failed: ' + (errData.error || errData.message));
+            }
+        } catch (e) {
+            alert('Restore failed: ' + e.message);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Restaurer';
+            }
+        }
+    }
+
     // Setup event listeners
     window.addEventListener('DOMContentLoaded', async () => {
         await i18n.init();
         initSavedTemplate();
+
+        if (els.alertWindowSelect) {
+            els.alertWindowSelect.value = String(getAlertWindow());
+        }
 
         const pwdInput = document.getElementById('password-input');
         pwdInput?.addEventListener('keydown', (e) => {
@@ -853,28 +1713,8 @@
             await i18n.setLanguage(e.target.value);
         });
 
-        els.groups.addEventListener('change', (e) => {
-            const gid = e.target.value;
-            localStorage.setItem('wa_selected_group', gid);
-            updateFavoriteStarState();
-            els.results.classList.add('hidden');
-            els.blank.classList.remove('hidden');
-            if (!gid) {
-                els.polls.disabled = true;
-                return;
-            }
-
-            els.blankText.textContent = i18n.t('results.loading');
-            els.blankSpinner.classList.remove('hidden');
-            els.pollTitle.value = generateDefaultPollTitle();
-            els.pollOptions.value = i18n.t('broadcast.defaultOptions');
-            refreshPolls(gid, false);
-        });
-
-        els.polls.addEventListener('change', () => {
-            localStorage.setItem('wa_selected_poll', els.polls.value);
-            forceSync();
-        });
+        els.groups.addEventListener('change', (e) => onGroupChange(e.target.value));
+        els.polls.addEventListener('change', (e) => onPollChange(e.target.value));
         els.filter.addEventListener('change', renderTable);
         els.btnExportCsv?.addEventListener('click', exportCsv);
         els.btnRemindAll?.addEventListener('click', sendBulkReminders);
@@ -895,6 +1735,10 @@
             els.app.classList.remove('hidden');
             document.getElementById('btn-logout')?.classList.remove('hidden');
             document.getElementById('connection-indicator')?.classList.remove('hidden');
+            document.getElementById('nav-drawer-buttons')?.classList.remove('hidden');
+            document.getElementById('nav-drawer-buttons')?.classList.add('flex');
+            const labelEl = document.getElementById('active-alert-window-label');
+            if (labelEl) labelEl.textContent = `${getAlertWindow()} min`;
             initSocket();
             checkStatus();
         } else {
@@ -902,6 +1746,8 @@
             els.app.classList.add('hidden');
             document.getElementById('btn-logout')?.classList.add('hidden');
             document.getElementById('connection-indicator')?.classList.add('hidden');
+            document.getElementById('nav-drawer-buttons')?.classList.add('hidden');
+            document.getElementById('nav-drawer-buttons')?.classList.remove('flex');
         }
     });
 
@@ -914,11 +1760,35 @@
         updatePollTime,
         sendReminder,
         editContactName,
+        openCityModal,
+        closeCityModal,
+        handleCitySearch,
+        selectContactCity,
+        selectContactCityById,
+        clearContactCity,
+        onAlertWindowChange,
+        onPollChange,
+        onGroupChange,
+        onDrawerPollChange,
+        onDrawerGroupChange,
         toggleSort,
         handleSearch,
         toggleFavoriteGroup,
         renderTable,
         generateDefaultPollTitle,
+        openDrawer,
+        closeDrawer,
+        switchDrawerTab,
+        loadDirectoryContacts,
+        debounceDirSearch,
+        toggleSelectAllDirectory,
+        toggleSelectContact,
+        openBatchCityModal,
+        loadAnalytics,
+        syncHistoricalAlerts,
+        purgeOldAlerts,
+        downloadBackupZip,
+        restoreBackupZip,
         toggleBox: (id) => document.getElementById(id)?.classList.toggle('hidden')
     };
 })();

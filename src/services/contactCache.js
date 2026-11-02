@@ -52,6 +52,7 @@ class ContactCache {
         if (extra.lid) {
             const cleanLid = extra.lid.split(':')[0];
             this.lidMap.set(cleanLid, cleanKey);
+            this.lidMap.set(cleanKey, cleanLid); // Bidirectional mapping
             this.cache.set(cleanLid, val);
         }
 
@@ -79,6 +80,7 @@ class ContactCache {
                     this.set(id, name, { lid, phoneNumber: contact.phoneNumber, name: contact.name });
                 } else if (lid) {
                     this.lidMap.set(lid, id);
+                    this.lidMap.set(id, lid);
                 }
 
                 toPersist.push({
@@ -93,6 +95,43 @@ class ContactCache {
 
         if (toPersist.length > 0) {
             contactRepository.bulkUpsert(toPersist).catch(() => {});
+        }
+    }
+
+    async preloadFromDatabase() {
+        try {
+            const rows = await contactRepository.getAllContacts();
+            for (const row of rows) {
+                if (!row || !row.id) continue;
+                const cleanId = row.id.split(':')[0];
+                const name = row.name || row.notify;
+                if (name) {
+                    this.cache.set(cleanId, name);
+                    this.cache.set(cleanId.split('@')[0], name);
+                }
+                if (row.lid) {
+                    const cleanLid = row.lid.split(':')[0];
+                    this.lidMap.set(cleanLid, cleanId);
+                    this.lidMap.set(cleanId, cleanLid);
+                    if (name) this.cache.set(cleanLid, name);
+                }
+                if (row.phone_number) {
+                    const cleanPhone = row.phone_number.split('@')[0].replace(/\D/g, '');
+                    const phoneJid = `${cleanPhone}@s.whatsapp.net`;
+                    if (row.lid) {
+                        const cleanLid = row.lid.split(':')[0];
+                        this.lidMap.set(cleanLid, phoneJid);
+                        this.lidMap.set(phoneJid, cleanLid);
+                    }
+                    if (cleanId.includes('@lid')) {
+                        this.lidMap.set(cleanId, phoneJid);
+                        this.lidMap.set(phoneJid, cleanId);
+                    }
+                }
+            }
+            console.log(`[CONTACT-CACHE] Preloaded ${rows.length} contacts from database into memory cache`);
+        } catch (err) {
+            console.warn('[CONTACT-CACHE] Error preloading contacts from database:', err.message);
         }
     }
 
