@@ -22,6 +22,10 @@
 - 2026-11-01: Intégration du sélecteur bilingue (FR/EN) directement sur la carte de connexion avec persistance et mise à jour dynamique des textes.
 - 2026-11-01: Correction d'une erreur de syntaxe JS bloquant l'initialisation de l'application, fiabilisation du retour visuel d'erreur de mot de passe et support de la touche Entrée.
 - 2026-11-01: Unification du sélecteur de langue dans la barre supérieure, suppression du sélecteur en doublon sur la carte de connexion et masquage du bouton de déconnexion pour les utilisateurs non authentifiés.
+- 2026-11-01: Correction d'une erreur de syntaxe JS bloquant l'initialisation de l'application, fiabilisation du retour visuel d'erreur de mot de passe et support de la touche Entrée.
+- 2026-11-01: Unification du sélecteur de langue dans la barre supérieure, suppression du sélecteur en doublon sur la carte de connexion et masquage du bouton de déconnexion pour les utilisateurs non authentifiés.
+
+
 
 
 
