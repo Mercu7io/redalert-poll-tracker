@@ -328,11 +328,31 @@ class PollService {
             if (m.phone && baseVoter && baseVoter === m.phone) return true;
             if (m.lid && baseVoter && baseVoter === m.lid.split('@')[0]) return true;
 
-            const mapped = contactCache.lidMap.get(cleanVoterId);
-            if (mapped) {
-                if (mapped === m.id || mapped === m.lid) return true;
-                if (m.phone && mapped.split('@')[0].replace(/\D/g, '') === m.phone) return true;
+            // Bidirectional check via voter ID
+            const mappedVoter = contactCache.lidMap.get(cleanVoterId);
+            if (mappedVoter) {
+                if (mappedVoter === m.id || mappedVoter === m.lid) return true;
+                if (m.phone && mappedVoter.split('@')[0].replace(/\D/g, '') === m.phone) return true;
             }
+
+            // Bidirectional check via member ID
+            if (m.id) {
+                const mappedMember = contactCache.lidMap.get(m.id);
+                if (mappedMember) {
+                    if (mappedMember === cleanVoterId) return true;
+                    if (baseVoter && mappedMember.split('@')[0].replace(/\D/g, '') === baseVoter) return true;
+                }
+            }
+
+            // Bidirectional check via member LID
+            if (m.lid) {
+                const mappedMemberLid = contactCache.lidMap.get(m.lid);
+                if (mappedMemberLid) {
+                    if (mappedMemberLid === cleanVoterId) return true;
+                    if (baseVoter && mappedMemberLid.split('@')[0].replace(/\D/g, '') === baseVoter) return true;
+                }
+            }
+
             return false;
         };
 

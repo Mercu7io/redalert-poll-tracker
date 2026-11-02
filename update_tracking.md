@@ -25,6 +25,7 @@
 - 2026-11-02: Intégration complète des alertes Tzeva Adom / Pikud HaOref (WebSocket Tzofar temps réel, 1 451 villes israéliennes, fenêtre d'alerte paramétrable, modal de recherche de ville et colonne dédiée Localisation & Alerte avec indicateurs 🟢/🔴 dynamiques).
 - 2026-11-02: Correction de l'autocomplétion des villes (sélection sécurisée par identifiant numérique unique, affichage immédiat des villes principales et redémarrage du serveur avec le nouveau code).
 - 2026-11-02: Correction de la persistance multi-identités (LID vs JID) de la ville d'un contact et synchronisation bidirectionnelle dans SQLite.
+- 2026-11-02: Sécurisation critique pour situations d'urgence (support des salves d'alertes en tableau, normalisation des timestamps, résilience des correspondances de villes hébreu/anglais, préchargement au démarrage de 900 contacts en mémoire et suite de 60 tests de fiabilité).
 
 
 

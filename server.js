@@ -5,6 +5,7 @@ const { createApp } = require('./src/app');
 const { setupSocketIO } = require('./src/socket');
 const whatsappService = require('./src/services/whatsappService');
 const tzevaAdomService = require('./src/services/tzevaAdomService');
+const contactCache = require('./src/services/contactCache');
 
 async function startServer() {
     try {
@@ -13,6 +14,8 @@ async function startServer() {
         
         await initDatabase();
         console.log(`Database initialized: ${config.dbPath}`);
+
+        await contactCache.preloadFromDatabase();
 
         const app = createApp();
         const server = http.createServer(app);

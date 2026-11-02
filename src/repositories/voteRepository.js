@@ -28,7 +28,7 @@ class VoteRepository {
         const db = this.getDb();
         return new Promise((resolve, reject) => {
             db.all(
-                `SELECT voter_id, voter_name, options, timestamp FROM votes WHERE poll_id = ?`,
+                `SELECT voter_id, voter_name, options, timestamp FROM votes WHERE poll_id = ? ORDER BY timestamp DESC`,
                 [pollId],
                 (err, rows) => {
                     if (err) return reject(err);

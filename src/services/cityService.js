@@ -97,9 +97,20 @@ class CityService {
         const exact = this.citiesByHebrew.get(clean) || this.citiesByEnglish.get(clean);
         if (exact) return exact;
 
-        // Fallback: match by prefix (e.g. "Ashkelon" matches "Ashkelon - South")
+        const normClean = clean.replace(/['`]/g, '').replace(/[\-–—]/g, ' ').replace(/\s+/g, ' ').trim();
+
+        // Fallback: match by prefix (e.g. "Ashkelon" matches "Ashkelon - South") or normalized
         for (const city of this.cities) {
-            if (city.nameEn.toLowerCase().startsWith(clean) || city.name.toLowerCase().startsWith(clean)) {
+            const en = city.nameEn.toLowerCase();
+            const he = city.name.toLowerCase();
+            if (en.startsWith(clean) || he.startsWith(clean)) {
+                return city;
+            }
+
+            const normEn = en.replace(/['`]/g, '').replace(/[\-–—]/g, ' ').replace(/\s+/g, ' ').trim();
+            const normHe = he.replace(/['`]/g, '').replace(/[\-–—]/g, ' ').replace(/\s+/g, ' ').trim();
+
+            if (normEn === normClean || normHe === normClean || normEn.startsWith(normClean) || normHe.startsWith(normClean) || normClean.startsWith(normEn) || normClean.startsWith(normHe)) {
                 return city;
             }
         }

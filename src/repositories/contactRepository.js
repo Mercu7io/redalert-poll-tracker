@@ -209,6 +209,20 @@ class ContactRepository {
             });
         });
     }
+
+    async getAllContacts() {
+        const db = this.getDb();
+        return new Promise((resolve, reject) => {
+            db.all(
+                "SELECT id, lid, phone_number, name, notify, city_id, city_name, city_name_en, city_countdown FROM contacts",
+                [],
+                (err, rows) => {
+                    if (err) return reject(err);
+                    resolve(rows || []);
+                }
+            );
+        });
+    }
 }
 
 module.exports = new ContactRepository();

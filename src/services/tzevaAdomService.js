@@ -14,9 +14,15 @@ const CATEGORY_MAP = {
 };
 
 class TzevaAdomService {
-    constructor({ alertRepo = alertRepository, citySvc = cityService } = {}) {
-        this.alertRepo = alertRepo;
-        this.citySvc = citySvc;
+    constructor(optionsOrCitySvc = {}, maybeAlertRepo = null) {
+        if (optionsOrCitySvc && typeof optionsOrCitySvc.getCityByName === 'function') {
+            this.citySvc = optionsOrCitySvc;
+            this.alertRepo = maybeAlertRepo || alertRepository;
+        } else {
+            const { alertRepo = alertRepository, citySvc = cityService } = optionsOrCitySvc || {};
+            this.alertRepo = alertRepo;
+            this.citySvc = citySvc;
+        }
         this.ws = null;
         this.io = null;
         this.isConnected = false;
@@ -149,13 +155,24 @@ class TzevaAdomService {
     async processRawAlert(raw) {
         if (!raw) return;
 
+        // Support array payloads during multi-alert barrages
+        if (Array.isArray(raw)) {
+            for (const item of raw) {
+                await this.processRawAlert(item);
+            }
+            return;
+        }
+
         // Support both Tzofar payload formats: { id, cat, title, data: [cities], timestamp } or array
         const alertId = String(raw.id || raw.notificationId || Date.now());
         const categoryId = Number(raw.cat || raw.categoryId || 1);
         const categoryTitle = raw.title || raw.categoryTitle || 'Tzeva Adom Alert';
         const cities = Array.isArray(raw.data) ? raw.data : (Array.isArray(raw.cities) ? raw.cities : []);
         const description = raw.desc || raw.description || null;
-        const timestamp = Number(raw.timestamp) || Math.floor(Date.now() / 1000);
+        let timestamp = Number(raw.timestamp) || Math.floor(Date.now() / 1000);
+        if (timestamp > 1e11) {
+            timestamp = Math.floor(timestamp / 1000); // Normalize ms to seconds
+        }
 
         if (cities.length === 0) return;
 
@@ -174,6 +191,9 @@ class TzevaAdomService {
             categoryLabelEn: categoryMeta.en,
             categoryLabelFr: categoryMeta.fr,
             categoryIcon: categoryMeta.icon,
+            categoryEn: categoryMeta.en,
+            categoryFr: categoryMeta.fr,
+            icon: categoryMeta.icon,
             cities,
             description,
             timestamp
@@ -210,6 +230,16 @@ class TzevaAdomService {
             return { hasAlert: false, alert: null };
         }
 
+        const normalizeStr = (s) => {
+            if (!s) return '';
+            return String(s)
+                .replace(/['`]/g, '')
+                .replace(/[\-–—]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .toLowerCase();
+        };
+
         const windowSeconds = Number(windowMinutes) * 60;
         const nowSeconds = Math.floor(Date.now() / 1000);
         const sinceSeconds = nowSeconds - windowSeconds;
@@ -235,15 +265,26 @@ class TzevaAdomService {
             }
         }
 
+        const normHebrew = normalizeStr(targetHebrew);
+        const normEnglish = normalizeStr(targetEnglish);
+
         const candidateAlerts = this.memoryAlerts.filter(a => a.timestamp >= sinceSeconds);
 
         for (const alert of candidateAlerts) {
             const match = (alert.cities || []).some(cityName => {
                 const c = String(cityName).trim().toLowerCase();
+                const normC = normalizeStr(cityName);
+
                 if (targetHebrew && (c === targetHebrew || c.startsWith(targetHebrew) || targetHebrew.startsWith(c))) {
                     return true;
                 }
+                if (normHebrew && (normC === normHebrew || normC.startsWith(normHebrew) || normHebrew.startsWith(normC))) {
+                    return true;
+                }
                 if (targetEnglish && (c === targetEnglish || c.includes(targetEnglish))) {
+                    return true;
+                }
+                if (normEnglish && (normC === normEnglish || normC.includes(normEnglish))) {
                     return true;
                 }
                 return false;
@@ -254,6 +295,14 @@ class TzevaAdomService {
                 const categoryMeta = CATEGORY_MAP[alert.categoryId] || { key: 'general', en: alert.categoryTitle, fr: alert.categoryTitle, icon: '⚠️' };
                 return {
                     hasAlert: true,
+                    icon: categoryMeta.icon,
+                    categoryKey: categoryMeta.key,
+                    categoryEn: categoryMeta.en,
+                    categoryFr: categoryMeta.fr,
+                    categoryLabelEn: categoryMeta.en,
+                    categoryLabelFr: categoryMeta.fr,
+                    minutesAgo,
+                    countdown,
                     alert: {
                         id: alert.id,
                         categoryId: alert.categoryId,
@@ -262,6 +311,8 @@ class TzevaAdomService {
                         categoryLabelEn: categoryMeta.en,
                         categoryLabelFr: categoryMeta.fr,
                         categoryIcon: categoryMeta.icon,
+                        categoryEn: categoryMeta.en,
+                        categoryFr: categoryMeta.fr,
                         timestamp: alert.timestamp,
                         minutesAgo,
                         countdown

@@ -187,10 +187,15 @@
         if (!alertData) return;
         console.log('[REALTIME] Incoming Tzeva Adom alert:', alertData);
         if (els.liveAlertBanner) {
-            const timeStr = new Date(alertData.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const catLabel = i18n.currentLanguage === 'fr' ? (alertData.categoryFr || alertData.categoryEn) : alertData.categoryEn;
+            const rawTs = Number(alertData.timestamp) || Date.now();
+            const tsMs = rawTs < 1e11 ? rawTs * 1000 : rawTs;
+            const timeStr = new Date(tsMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const catLabel = i18n.currentLanguage === 'fr' 
+                ? (alertData.categoryFr || alertData.categoryLabelFr || alertData.categoryEn || alertData.categoryLabelEn || alertData.categoryTitle || 'Alerte') 
+                : (alertData.categoryEn || alertData.categoryLabelEn || alertData.categoryTitle || 'Alert');
+            const alertIcon = alertData.icon || alertData.categoryIcon || '🚨';
             if (els.liveAlertTitle) {
-                els.liveAlertTitle.textContent = `${alertData.icon || '🚨'} ${catLabel} [${timeStr}]`;
+                els.liveAlertTitle.textContent = `${alertIcon} ${catLabel} [${timeStr}]`;
             }
             if (els.liveAlertDesc) {
                 const cityList = (alertData.citiesEn && alertData.citiesEn.length > 0) ? alertData.citiesEn : alertData.cities;
@@ -682,8 +687,8 @@
                                 ${(m.alertStatus && m.alertStatus.hasAlert) ? `
                                     <span class="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-300 shadow-xs animate-pulse">
                                         <span class="w-2 h-2 rounded-full bg-rose-600"></span>
-                                        <span>${m.alertStatus.icon || '🚨'} ${i18n.currentLanguage === 'fr' ? (m.alertStatus.categoryFr || m.alertStatus.categoryEn) : m.alertStatus.categoryEn}</span>
-                                        <span class="text-[9px] text-rose-500 font-mono">(${m.alertStatus.minutesAgo}m)</span>
+                                        <span>${m.alertStatus.icon || m.alertStatus.alert?.categoryIcon || '🚨'} ${i18n.currentLanguage === 'fr' ? (m.alertStatus.categoryFr || m.alertStatus.alert?.categoryLabelFr || m.alertStatus.categoryEn || m.alertStatus.alert?.categoryLabelEn || 'Alerte') : (m.alertStatus.categoryEn || m.alertStatus.alert?.categoryLabelEn || 'Alert')}</span>
+                                        <span class="text-[9px] text-rose-500 font-mono">(${m.alertStatus.minutesAgo ?? m.alertStatus.alert?.minutesAgo ?? 0}m)</span>
                                     </span>
                                 ` : `
                                     <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/70 shadow-2xs">
