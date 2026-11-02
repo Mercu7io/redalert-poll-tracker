@@ -319,11 +319,11 @@ class WhatsAppService {
                     ? pollService.extractSelectedOptions(pollOptions, decryptedVote) 
                     : [];
 
-                if (decryptedVote) {
-                    console.log(`[DECRYPT SUCCESS] Vote options for ${voterId}:`, userOptions);
-                } else {
+                if (!decryptedVote) {
                     console.warn(`[DECRYPT FAILED] Could not decrypt vote from ${voterId} on poll ${pollId}`);
+                    return;
                 }
+                console.log(`[DECRYPT SUCCESS] Vote options for ${voterId}:`, userOptions);
 
                 // Exclude bot from voting records
                 const botCleanId = this.sock?.user?.id ? this.sock.user.id.split(':')[0] : null;
@@ -374,6 +374,43 @@ class WhatsAppService {
             } catch (e) {
                 console.error('[DEBUG] Decryption / Vote processing error:', e.message);
             }
+        }
+    }
+
+    async syncChatHistory(groupId, pollId = null) {
+        if (!this.sock || !this.isConnected) {
+            throw new Error('WhatsApp client is offline');
+        }
+
+        let oldestMsgKey = null;
+        let oldestMsgTimestamp = null;
+
+        if (pollId) {
+            const rawDb = await pollRepository.getRawMessage(pollId);
+            if (rawDb) {
+                try {
+                    const parsed = JSON.parse(rawDb, bufferReviver);
+                    oldestMsgKey = parsed.key;
+                    oldestMsgTimestamp = parsed.messageTimestamp ? Number(parsed.messageTimestamp) * 1000 : null;
+                } catch (e) {}
+            }
+        }
+
+        if (!oldestMsgKey) {
+            oldestMsgKey = { remoteJid: groupId, fromMe: false, id: pollId || 'sync_anchor' };
+            oldestMsgTimestamp = Date.now();
+        }
+
+        try {
+            if (typeof this.sock.fetchMessageHistory === 'function') {
+                await this.sock.fetchMessageHistory(50, oldestMsgKey, oldestMsgTimestamp);
+                console.log(`[SYNC] fetchMessageHistory requested for group ${groupId}`);
+                return { requested: true, message: 'History sync requested from companion device' };
+            }
+            return { requested: false, message: 'fetchMessageHistory not available on socket' };
+        } catch (err) {
+            console.warn('[SYNC] fetchMessageHistory error:', err.message);
+            return { requested: false, error: err.message };
         }
     }
 

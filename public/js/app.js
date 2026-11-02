@@ -189,7 +189,16 @@
         const pwdInput = document.getElementById('password-input');
         const timeoutSelect = document.getElementById('timeout-select');
         const errorEl = document.getElementById('login-error');
-        const pwd = pwdInput.value.trim();
+        const pwd = pwdInput ? pwdInput.value.trim() : '';
+
+        if (!pwd) {
+            if (errorEl) {
+                errorEl.classList.remove('hidden');
+                errorEl.style.display = 'flex';
+            }
+            pwdInput?.focus();
+            return;
+        }
 
         try {
             const res = await fetch('/api/login-check', {
@@ -199,17 +208,34 @@
             });
 
             if (res.ok) {
-                errorEl.classList.add('hidden');
-                api.setSession(pwd, parseInt(timeoutSelect.value, 10));
+                if (errorEl) {
+                    errorEl.classList.add('hidden');
+                    errorEl.style.display = 'none';
+                }
+                api.setSession(pwd, parseInt(timeoutSelect ? timeoutSelect.value : 60, 10));
                 els.login.classList.add('hidden');
                 els.app.classList.remove('hidden');
+                document.getElementById('btn-logout')?.classList.remove('hidden');
+                document.getElementById('connection-indicator')?.classList.remove('hidden');
                 initSocket();
                 checkStatus();
             } else {
-                errorEl.classList.remove('hidden');
+                if (errorEl) {
+                    errorEl.classList.remove('hidden');
+                    errorEl.style.display = 'flex';
+                }
+                if (pwdInput) {
+                    pwdInput.classList.add('ring-2', 'ring-rose-500', 'border-rose-500');
+                    setTimeout(() => {
+                        pwdInput.classList.remove('ring-2', 'ring-rose-500', 'border-rose-500');
+                    }, 2000);
+                }
             }
         } catch (e) {
-            errorEl.classList.remove('hidden');
+            if (errorEl) {
+                errorEl.classList.remove('hidden');
+                errorEl.style.display = 'flex';
+            }
         }
     }
 
@@ -217,6 +243,8 @@
         api.clearSession();
         els.app.classList.add('hidden');
         els.login.classList.remove('hidden');
+        document.getElementById('btn-logout')?.classList.add('hidden');
+        document.getElementById('connection-indicator')?.classList.add('hidden');
         if (socket) {
             socket.disconnect();
             socket = null;
@@ -229,21 +257,102 @@
         checkStatus();
     }
 
-    async function loadGroups() {
+    function getFavoriteGroups() {
+        try {
+            return JSON.parse(localStorage.getItem('wa_favorite_groups') || '[]');
+        } catch {
+            return [];
+        }
+    }
+
+    function saveFavoriteGroups(favs) {
+        localStorage.setItem('wa_favorite_groups', JSON.stringify(favs));
+    }
+
+    function updateFavoriteStarState() {
+        const currentGid = els.groups.value;
+        const favorites = getFavoriteGroups();
+        const isFav = currentGid && favorites.includes(currentGid);
+        const starIcon = document.getElementById('fav-star-icon');
+        const starText = document.getElementById('fav-star-text');
+        if (starIcon) {
+            if (isFav) {
+                starIcon.classList.remove('text-slate-400');
+                starIcon.classList.add('text-amber-500');
+                starIcon.setAttribute('fill', 'currentColor');
+            } else {
+                starIcon.classList.add('text-slate-400');
+                starIcon.classList.remove('text-amber-500');
+                starIcon.setAttribute('fill', 'none');
+            }
+        }
+        if (starText) {
+            starText.textContent = isFav ? (i18n.t('config.favorited') || 'Favori ⭐') : (i18n.t('config.favorite') || 'Favori');
+            starText.className = isFav ? 'text-[11px] font-bold text-amber-600' : 'text-[11px] font-bold text-slate-400';
+        }
+    }
+
+    function toggleFavoriteGroup() {
+        const currentGid = els.groups.value;
+        if (!currentGid) return;
+        let favorites = getFavoriteGroups();
+        if (favorites.includes(currentGid)) {
+            favorites = favorites.filter(id => id !== currentGid);
+        } else {
+            favorites.push(currentGid);
+        }
+        saveFavoriteGroups(favorites);
+        loadGroups(currentGid);
+    }
+
+    async function loadGroups(preserveGid = null) {
         try {
             const res = await api.fetchAuth('/api/groups');
             if (!res.ok) throw new Error('Groups fetch failed');
             const groups = await res.json();
-            els.groups.innerHTML = `<option value="">${i18n.t('config.selectGroupPlaceholder')}</option>`;
-            groups.forEach(g => {
-                const opt = document.createElement('option');
-                opt.value = g.id;
-                opt.textContent = g.name;
-                els.groups.appendChild(opt);
-            });
+            const favorites = getFavoriteGroups();
+            const favGroups = groups.filter(g => favorites.includes(g.id));
+            const otherGroups = groups.filter(g => !favorites.includes(g.id));
 
-            if (groups.length > 0) {
-                els.groups.selectedIndex = 1;
+            els.groups.innerHTML = `<option value="">${i18n.t('config.selectGroupPlaceholder')}</option>`;
+
+            if (favGroups.length > 0) {
+                const optGroupFav = document.createElement('optgroup');
+                optGroupFav.label = i18n.t('config.favoritesGroup') || '⭐ Groupes Favoris';
+                favGroups.forEach(g => {
+                    const opt = document.createElement('option');
+                    opt.value = g.id;
+                    opt.textContent = `⭐ ${g.name}`;
+                    optGroupFav.appendChild(opt);
+                });
+                els.groups.appendChild(optGroupFav);
+            }
+
+            if (otherGroups.length > 0) {
+                const optGroupAll = document.createElement('optgroup');
+                optGroupAll.label = favGroups.length > 0 ? (i18n.t('config.allGroups') || 'Tous les groupes') : '';
+                otherGroups.forEach(g => {
+                    const opt = document.createElement('option');
+                    opt.value = g.id;
+                    opt.textContent = g.name;
+                    optGroupAll.appendChild(opt);
+                });
+                els.groups.appendChild(optGroupAll);
+            }
+
+            const targetGid = preserveGid || localStorage.getItem('wa_selected_group');
+            if (targetGid && groups.some(g => g.id === targetGid)) {
+                els.groups.value = targetGid;
+            } else if (favGroups.length > 0) {
+                els.groups.value = favGroups[0].id;
+            } else if (groups.length > 0) {
+                els.groups.value = groups[0].id;
+            }
+
+            updateFavoriteStarState();
+
+            if (els.groups.value) {
+                localStorage.setItem('wa_selected_group', els.groups.value);
                 els.groups.dispatchEvent(new Event('change'));
             } else {
                 els.blankText.textContent = i18n.t('results.selectToStart');
@@ -270,8 +379,13 @@
             });
             els.polls.disabled = false;
 
+            const savedPid = localStorage.getItem('wa_selected_poll');
             if (current && polls.some(p => p.id === current)) {
                 els.polls.value = current;
+                forceSync();
+            } else if (savedPid && polls.some(p => p.id === savedPid)) {
+                els.polls.value = savedPid;
+                forceSync();
             } else if (polls.length > 0) {
                 els.polls.selectedIndex = 1;
                 forceSync();
@@ -285,12 +399,23 @@
         }
     }
 
-    function forceSync() {
+    async function forceSync(manual = false) {
         const gid = els.groups.value;
         const pid = els.polls.value;
         if (gid && pid) {
+            localStorage.setItem('wa_selected_group', gid);
+            localStorage.setItem('wa_selected_poll', pid);
             els.blank.classList.add('hidden');
             els.results.classList.remove('hidden');
+
+            if (manual) {
+                try {
+                    api.fetchAuth(`/api/sync-history/${encodeURIComponent(gid)}/${encodeURIComponent(pid)}`, {
+                        method: 'POST'
+                    }).catch(() => {});
+                } catch (e) {}
+            }
+
             refreshStats(gid, pid);
         }
     }
@@ -334,6 +459,34 @@
         }
     }
 
+    function getInitials(name = '') {
+        const parts = name.trim().split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[1][0]).toUpperCase();
+        }
+        return (name.trim().substring(0, 2) || '?').toUpperCase();
+    }
+
+    const avatarColors = [
+        'bg-blue-50 text-blue-700 border-blue-200/60',
+        'bg-emerald-50 text-emerald-700 border-emerald-200/60',
+        'bg-indigo-50 text-indigo-700 border-indigo-200/60',
+        'bg-purple-50 text-purple-700 border-purple-200/60',
+        'bg-amber-50 text-amber-700 border-amber-200/60',
+        'bg-rose-50 text-rose-700 border-rose-200/60',
+        'bg-teal-50 text-teal-700 border-teal-200/60'
+    ];
+
+    function getAvatarClass(name = '') {
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        return avatarColors[Math.abs(hash) % avatarColors.length];
+    }
+
+    function handleSearch() {
+        renderTable();
+    }
+
     function toggleSort(col) {
         if (currentSort.column === col) {
             currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
@@ -347,10 +500,19 @@
     function renderTable() {
         let voted = 0;
         const filterVal = els.filter.value;
+        const searchInput = document.getElementById('search-input');
+        const searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
         const fragment = document.createDocumentFragment();
 
         const filteredStats = globalStats.filter(m => {
             if (m.hasVoted) voted++;
+
+            if (searchQuery) {
+                const nameMatch = (m.name || '').toLowerCase().includes(searchQuery);
+                const numberMatch = (m.number || '').toLowerCase().includes(searchQuery);
+                if (!nameMatch && !numberMatch) return false;
+            }
+
             if (filterVal === 'all') return true;
             if (filterVal === 'pending') return !m.hasVoted;
             if (filterVal === 'responded') return m.hasVoted;
@@ -405,41 +567,65 @@
             let formattedTime = '';
             if (m.timestamp) {
                 const utcDate = new Date(m.timestamp.replace(' ', 'T') + 'Z');
-                formattedTime = utcDate.toLocaleString();
+                formattedTime = utcDate.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
             }
 
-            const dotColorClass = m.hasVoted && displayOptions.length > 0 ? getOptionColor(displayOptions[0], globalPollOptions) : 'bg-slate-300 shadow-inner';
-
             const tr = document.createElement('tr');
-            tr.className = "hover:bg-slate-50 transition duration-100";
+            tr.className = "hover:bg-slate-50/80 transition-colors duration-150 group";
             const safeName = (m.name || '').replace(/'/g, "\\'");
+            const initials = getInitials(m.name);
+            const avatarColor = getAvatarClass(m.name);
+
+            // Option badges markup
+            const optionsBadges = displayOptions.map(opt => {
+                const isEmergency = /help|aide|sos|secours/i.test(opt);
+                const badgeColor = isEmergency 
+                    ? 'bg-rose-50 text-rose-700 border-rose-200/80 font-bold' 
+                    : 'bg-blue-50 text-blue-700 border-blue-200/70 font-semibold';
+                return `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] border ${badgeColor} mr-1 mb-0.5 shadow-2xs">${opt}</span>`;
+            }).join('');
+
             tr.innerHTML = `
-                <td class="px-8 py-5 text-sm font-bold text-slate-700">
-                    <div class="flex items-center space-x-1.5 group">
-                        <span class="member-display-name">${m.name}</span>
-                        <button onclick="window.PollApp.editContactName('${m.id}', '${safeName}', '${m.number || m.id}')" 
-                                class="text-slate-400 hover:text-blue-600 p-1 rounded hover:bg-slate-200/50 transition cursor-pointer" 
-                                title="${i18n.t('contacts.editName')}">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                        </button>
+                <td class="px-6 py-4 text-xs">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs border shrink-0 shadow-2xs ${avatarColor}">
+                            ${initials}
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex items-center space-x-1.5">
+                                <span class="member-display-name font-bold text-slate-900 truncate">${m.name}</span>
+                                <button onclick="window.PollApp.editContactName('${m.id}', '${safeName}', '${m.number || m.id}')" 
+                                        class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-600 p-1 rounded-md hover:bg-slate-100 transition-opacity duration-150 cursor-pointer" 
+                                        title="${i18n.t('contacts.editName')}">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                </button>
+                            </div>
+                            <div class="text-[11px] font-mono text-slate-500 mt-0.5">${m.number || ''}</div>
+                        </div>
                     </div>
-                    <div class="text-[10px] font-normal text-slate-400 font-mono mt-0.5">${m.number || ''}</div>
                 </td>
-                <td class="px-8 py-5">
-                    <div class="flex items-center mb-1">
-                        <span class="w-2.5 h-2.5 rounded-full mr-2 shrink-0 ${dotColorClass}"></span>
-                        <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${m.hasVoted ? 'bg-green-100 text-green-700' : 'bg-red-50 text-red-600'}">
-                            ${m.hasVoted ? i18n.t('results.responded') : i18n.t('results.pending')}
+                <td class="px-6 py-4 text-xs">
+                    <div class="flex items-center space-x-2">
+                        <span class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase border ${m.hasVoted ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80' : 'bg-amber-50 text-amber-700 border-amber-200/80'}">
+                            <span class="w-1.5 h-1.5 rounded-full ${m.hasVoted ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}"></span>
+                            <span>${m.hasVoted ? i18n.t('results.responded') : i18n.t('results.pending')}</span>
                         </span>
+                        ${formattedTime ? `<span class="text-[10px] text-slate-400 font-mono inline-flex items-center"><svg class="w-3 h-3 mr-1 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>${formattedTime}</span>` : ''}
                     </div>
-                    ${m.hasVoted ? `<div class="text-[9px] font-black text-slate-500 mt-2 ml-4">${displayOptions.join(', ')}</div>` : ''}
-                    ${m.timestamp ? `<div class="text-[9px] font-semibold text-slate-400 mt-1 ml-4 flex items-center">
-                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        ${formattedTime}
-                    </div>` : ''}
+                    ${displayOptions.length > 0 ? `<div class="mt-2 flex flex-wrap items-center">${optionsBadges}</div>` : ''}
                 </td>
-                <td class="px-8 py-5 text-right">
-                    ${!m.hasVoted ? `<button onclick="window.PollApp.sendReminder('${m.id}', this)" class="text-[9px] bg-blue-600 text-white font-black uppercase py-2 px-4 rounded-xl shadow-md hover:bg-blue-700 transition">${i18n.t('reminder.remind')}</button>` : '<div class="text-green-500 font-black px-4">✓</div>'}
+                <td class="px-6 py-4 text-right">
+                    ${!m.hasVoted ? `
+                        <button onclick="window.PollApp.sendReminder('${m.id}', this)" class="inline-flex items-center space-x-1 text-xs bg-slate-900 hover:bg-black text-white font-bold py-1.5 px-3 rounded-xl shadow-xs transition active:scale-95 cursor-pointer">
+                            <svg class="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                            <span>${i18n.t('reminder.remind')}</span>
+                        </button>
+                    ` : `
+                        <span class="inline-flex items-center space-x-1 text-emerald-600 bg-emerald-50 border border-emerald-200/60 font-bold px-2.5 py-1 rounded-xl text-xs">
+                            <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                            <span>OK</span>
+                        </span>
+                    `}
                 </td>
             `;
             fragment.appendChild(tr);
@@ -448,6 +634,23 @@
         els.members.innerHTML = '';
         els.members.appendChild(fragment);
         els.stats.textContent = `${voted}/${globalStats.length}`;
+
+        // Live Metric Cards update
+        const totalCount = globalStats.length;
+        const votedCount = voted;
+        const pendingCount = Math.max(0, totalCount - votedCount);
+        const percent = totalCount > 0 ? Math.round((votedCount / totalCount) * 100) : 0;
+
+        const totalEl = document.getElementById('metric-total');
+        if (totalEl) totalEl.textContent = totalCount;
+        const votedEl = document.getElementById('metric-voted');
+        if (votedEl) votedEl.textContent = votedCount;
+        const pendingEl = document.getElementById('metric-pending');
+        if (pendingEl) pendingEl.textContent = pendingCount;
+        const percentEl = document.getElementById('metric-percent');
+        if (percentEl) percentEl.textContent = `${percent}%`;
+        const progressBar = document.getElementById('metric-progress-bar');
+        if (progressBar) progressBar.style.width = `${percent}%`;
     }
 
     async function createNewPoll() {
@@ -488,7 +691,19 @@
     async function sendReminder(targetId, btn) {
         const raw = els.polls.options[els.polls.selectedIndex]?.text || '';
         const pollTitle = raw.includes(' (') ? raw.substring(0, raw.lastIndexOf(' (')) : raw;
-        const defaultMsg = els.template.value.replace(/\[PollTitle\]/g, pollTitle);
+        const member = globalStats.find(m => m.id === targetId || (m.lid && m.lid === targetId));
+        const memberName = (member && member.name && !member.name.startsWith('+') && member.name !== 'Hidden Contact') 
+            ? member.name 
+            : (member?.number && !member.number.startsWith('Hidden') ? member.number : '');
+
+        let defaultMsg = els.template.value.replace(/\[PollTitle\]/g, pollTitle);
+        if (memberName) {
+            defaultMsg = defaultMsg.replace(/\[Name\]/g, memberName);
+        } else {
+            defaultMsg = defaultMsg.replace(/\s*\[Name\]\s*/g, ' ').replace(/\s+([,!?.:;])/g, '$1');
+        }
+        defaultMsg = defaultMsg.replace(/\s{2,}/g, ' ').trim();
+
         const msg = prompt('Edit reminder message:', defaultMsg);
         if (!msg) return;
 
@@ -532,11 +747,19 @@
         els.btnRemindAll.textContent = i18n.t('reminder.reminding');
 
         try {
-            const targetIds = pendingMembers.map(m => m.id);
+            const targets = pendingMembers.map(m => ({
+                id: m.id,
+                name: (m.name && !m.name.startsWith('+') && m.name !== 'Hidden Contact') ? m.name : ''
+            }));
             const res = await api.fetchAuth('/api/remind-bulk', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetIds, customMessage: defaultMsg, delayMs: 1500 })
+                body: JSON.stringify({ 
+                    targetIds: targets.map(t => t.id), 
+                    targets,
+                    customMessage: defaultMsg, 
+                    delayMs: 1500 
+                })
             });
 
             if (res.ok) {
@@ -611,14 +834,29 @@
         await i18n.init();
         initSavedTemplate();
 
+        const pwdInput = document.getElementById('password-input');
+        pwdInput?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                login();
+            }
+        });
+        pwdInput?.addEventListener('input', () => {
+            const errorEl = document.getElementById('login-error');
+            if (errorEl) {
+                errorEl.classList.add('hidden');
+                errorEl.style.display = 'none';
+            }
+        });
+
         document.getElementById('lang-select')?.addEventListener('change', async (e) => {
-            await i18n.loadLanguage(e.target.value);
-            els.pollTitle.value = generateDefaultPollTitle();
-            renderTable();
+            await i18n.setLanguage(e.target.value);
         });
 
         els.groups.addEventListener('change', (e) => {
             const gid = e.target.value;
+            localStorage.setItem('wa_selected_group', gid);
+            updateFavoriteStarState();
             els.results.classList.add('hidden');
             els.blank.classList.remove('hidden');
             if (!gid) {
@@ -633,7 +871,10 @@
             refreshPolls(gid, false);
         });
 
-        els.polls.addEventListener('change', () => forceSync());
+        els.polls.addEventListener('change', () => {
+            localStorage.setItem('wa_selected_poll', els.polls.value);
+            forceSync();
+        });
         els.filter.addEventListener('change', renderTable);
         els.btnExportCsv?.addEventListener('click', exportCsv);
         els.btnRemindAll?.addEventListener('click', sendBulkReminders);
@@ -652,11 +893,15 @@
         if (api.isAuthenticated()) {
             els.login.classList.add('hidden');
             els.app.classList.remove('hidden');
+            document.getElementById('btn-logout')?.classList.remove('hidden');
+            document.getElementById('connection-indicator')?.classList.remove('hidden');
             initSocket();
             checkStatus();
         } else {
             els.login.classList.remove('hidden');
             els.app.classList.add('hidden');
+            document.getElementById('btn-logout')?.classList.add('hidden');
+            document.getElementById('connection-indicator')?.classList.add('hidden');
         }
     });
 
@@ -664,12 +909,16 @@
         login,
         logoutWeb,
         disconnectWhatsApp,
-        forceSync,
+        forceSync: () => forceSync(true),
         createNewPoll,
         updatePollTime,
         sendReminder,
         editContactName,
         toggleSort,
+        handleSearch,
+        toggleFavoriteGroup,
+        renderTable,
+        generateDefaultPollTitle,
         toggleBox: (id) => document.getElementById(id)?.classList.toggle('hidden')
     };
 })();

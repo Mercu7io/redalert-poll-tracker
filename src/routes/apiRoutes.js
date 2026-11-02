@@ -31,6 +31,11 @@ router.use(httpAuthMiddleware);
 router.get('/status', whatsappController.getStatus);
 router.post('/whatsapp/disconnect', whatsappController.disconnect);
 router.get('/groups', whatsappController.getGroups);
+router.post(
+    '/sync-history/:groupId/:pollId?',
+    validate({ params: groupParamSchema }),
+    whatsappController.syncHistory
+);
 
 // Polls
 router.post(

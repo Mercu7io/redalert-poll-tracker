@@ -18,6 +18,10 @@ const remindSchema = z.object({
 
 const bulkRemindSchema = z.object({
     targetIds: z.array(z.string().min(3, 'Invalid target ID')).min(1, 'At least one recipient is required'),
+    targets: z.array(z.object({
+        id: z.string().min(3),
+        name: z.string().optional().nullable()
+    })).optional(),
     customMessage: z.string().min(1, 'Reminder message cannot be empty'),
     delayMs: z.coerce.number().int().min(500).max(10000).default(1500)
 });

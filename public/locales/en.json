@@ -22,7 +22,12 @@
         "pollLabel": "Active Poll",
         "selectGroupFirst": "Select a group first",
         "selectPollPlaceholder": "-- Select Poll --",
-        "forceSync": "Force Sync Data"
+        "forceSync": "Force Sync Data",
+        "favorite": "Favorite",
+        "favorited": "Favorite ⭐",
+        "favoritesGroup": "⭐ Favorite Groups",
+        "allGroups": "All Groups",
+        "syncingHistory": "Requesting history sync from phone..."
     },
     "broadcast": {
         "title": "Broadcast Poll",
@@ -62,7 +67,12 @@
         "hiddenByWhatsApp": "Hidden by WhatsApp",
         "loading": "Syncing directly with WhatsApp...",
         "noPolls": "No active polls. Broadcast one above!",
-        "selectToStart": "Select a group to start tracking"
+        "selectToStart": "Select a group to start tracking",
+        "searchPlaceholder": "Search by name or number...",
+        "metricsTotal": "Total",
+        "metricsResponded": "Responded",
+        "metricsPending": "Pending",
+        "participationRate": "Response Rate"
     },
     "auth": {
         "linkTitle": "Link WhatsApp",

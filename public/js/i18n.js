@@ -40,6 +40,17 @@ const i18n = {
         return formatted;
     },
 
+    async setLanguage(lang) {
+        await this.loadLanguage(lang);
+        const pollTitleEl = document.getElementById('new-poll-title');
+        if (pollTitleEl && window.PollApp && typeof window.PollApp.generateDefaultPollTitle === 'function') {
+            pollTitleEl.value = window.PollApp.generateDefaultPollTitle();
+        }
+        if (window.PollApp && typeof window.PollApp.renderTable === 'function') {
+            window.PollApp.renderTable();
+        }
+    },
+
     applyTranslations() {
         document.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
