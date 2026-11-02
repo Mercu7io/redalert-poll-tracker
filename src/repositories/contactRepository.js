@@ -79,7 +79,7 @@ class ContactRepository {
 
         return new Promise((resolve, reject) => {
             const query = `
-                SELECT id, lid, phone_number, name, notify 
+                SELECT id, lid, phone_number, name, notify, city_id, city_name, city_name_en, city_countdown 
                 FROM contacts 
                 WHERE id = ? OR lid = ? OR phone_number = ? OR id = ? OR lid = ?
                 LIMIT 1
@@ -95,6 +95,40 @@ class ContactRepository {
         const contact = await this.getByIdOrLid(identifier);
         if (!contact) return null;
         return contact.name || contact.notify || null;
+    }
+
+    async updateContactCity(id, { cityId = null, cityName = null, cityNameEn = null, cityCountdown = null } = {}) {
+        if (!id) return null;
+        const db = this.getDb();
+        const cleanId = id.split(':')[0];
+        const baseId = cleanId.split('@')[0];
+        const jid = `${baseId}@s.whatsapp.net`;
+        const lid = `${baseId}@lid`;
+
+        return new Promise((resolve, reject) => {
+            const query = `
+                INSERT INTO contacts (id, city_id, city_name, city_name_en, city_countdown, updated_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(id) DO UPDATE SET
+                    city_id = excluded.city_id,
+                    city_name = excluded.city_name,
+                    city_name_en = excluded.city_name_en,
+                    city_countdown = excluded.city_countdown,
+                    updated_at = CURRENT_TIMESTAMP
+            `;
+            db.run(query, [cleanId, cityId, cityName, cityNameEn, cityCountdown], function(err) {
+                if (err) return reject(err);
+                const updateAltQuery = `
+                    UPDATE contacts 
+                    SET city_id = ?, city_name = ?, city_name_en = ?, city_countdown = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? OR lid = ? OR id = ? OR lid = ?
+                `;
+                db.run(updateAltQuery, [cityId, cityName, cityNameEn, cityCountdown, cleanId, cleanId, jid, lid], function(uErr) {
+                    if (uErr) return reject(uErr);
+                    resolve({ id: cleanId, cityId, cityName, cityNameEn, cityCountdown });
+                });
+            });
+        });
     }
 
     async updateCustomName(id, customName) {

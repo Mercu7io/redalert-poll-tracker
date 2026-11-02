@@ -59,9 +59,31 @@ function initDatabase(customPath = null) {
                     phone_number TEXT,
                     name TEXT,
                     notify TEXT,
+                    city_id INTEGER,
+                    city_name TEXT,
+                    city_name_en TEXT,
+                    city_countdown INTEGER,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             `);
+            // Safe ALTER in case existing table misses city columns
+            db.run(`ALTER TABLE contacts ADD COLUMN city_id INTEGER`, () => {});
+            db.run(`ALTER TABLE contacts ADD COLUMN city_name TEXT`, () => {});
+            db.run(`ALTER TABLE contacts ADD COLUMN city_name_en TEXT`, () => {});
+            db.run(`ALTER TABLE contacts ADD COLUMN city_countdown INTEGER`, () => {});
+
+            db.run(`
+                CREATE TABLE IF NOT EXISTS alerts_history (
+                    id TEXT PRIMARY KEY,
+                    category_id INTEGER NOT NULL,
+                    category_title TEXT NOT NULL,
+                    cities TEXT NOT NULL,
+                    description TEXT,
+                    timestamp INTEGER NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+            db.run(`CREATE INDEX IF NOT EXISTS idx_alerts_timestamp ON alerts_history(timestamp)`);
             db.run(`CREATE INDEX IF NOT EXISTS idx_contacts_lid ON contacts(lid)`);
             db.run(`CREATE INDEX IF NOT EXISTS idx_contacts_phone ON contacts(phone_number)`, (err) => {
                 if (err) return reject(err);

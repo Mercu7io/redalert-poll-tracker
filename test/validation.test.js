@@ -5,7 +5,9 @@ const {
     createPollSchema,
     remindSchema,
     bulkRemindSchema,
-    updateContactNameSchema
+    updateContactNameSchema,
+    updateContactCitySchema,
+    searchCitiesSchema
 } = require('../src/validators/schemas');
 
 describe('Input Validation Schemas', () => {
@@ -104,6 +106,43 @@ describe('Input Validation Schemas', () => {
             };
             const result = updateContactNameSchema.safeParse(payload);
             assert.equal(result.success, false);
+        });
+    });
+
+    describe('updateContactCitySchema', () => {
+        it('validates a correct city update payload', () => {
+            const payload = {
+                id: '972501234567@s.whatsapp.net',
+                cityId: '500',
+                cityName: 'חיפה',
+                cityNameEn: 'Haifa',
+                cityCountdown: 60
+            };
+            const result = updateContactCitySchema.safeParse(payload);
+            assert.equal(result.success, true);
+            assert.equal(result.data.cityNameEn, 'Haifa');
+            assert.equal(result.data.cityCountdown, 60);
+        });
+
+        it('rejects an invalid contact id (edge case)', () => {
+            const payload = {
+                id: 'x',
+                cityNameEn: 'Haifa'
+            };
+            const result = updateContactCitySchema.safeParse(payload);
+            assert.equal(result.success, false);
+        });
+    });
+
+    describe('searchCitiesSchema', () => {
+        it('accepts search query parameter and defaults to empty string', () => {
+            const result = searchCitiesSchema.safeParse({});
+            assert.equal(result.success, true);
+            assert.equal(result.data.q, '');
+
+            const withQ = searchCitiesSchema.safeParse({ q: 'Jerusalem' });
+            assert.equal(withQ.success, true);
+            assert.equal(withQ.data.q, 'Jerusalem');
         });
     });
 });

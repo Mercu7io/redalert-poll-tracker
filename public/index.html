@@ -163,6 +163,19 @@
                                 </div>
                             </div>
 
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1.5" data-i18n="config.alertWindowLabel">Fenêtre d'alerte</label>
+                                <div class="relative">
+                                    <select id="alert-window-select" onchange="window.PollApp.onAlertWindowChange(this.value)" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition cursor-pointer pr-8">
+                                        <option value="5" data-i18n="config.alertWindow5m">5 dernières minutes</option>
+                                        <option value="10" selected data-i18n="config.alertWindow10m">10 dernières minutes (Défaut)</option>
+                                        <option value="15" data-i18n="config.alertWindow15m">15 dernières minutes</option>
+                                        <option value="30" data-i18n="config.alertWindow30m">30 dernières minutes</option>
+                                        <option value="60" data-i18n="config.alertWindow60m">60 dernières minutes</option>
+                                    </select>
+                                </div>
+                            </div>
+
                             <button onclick="window.PollApp.forceSync()" class="w-full flex items-center justify-center space-x-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-3 rounded-xl transition-all duration-150 cursor-pointer active:scale-[0.99]">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                                 <span data-i18n="config.forceSync">Forcer la synchronisation</span>
@@ -236,6 +249,20 @@
                     <!-- Results Section -->
                     <div id="results-section" class="hidden bg-white/95 backdrop-blur-xl rounded-3xl shadow-sm border border-slate-200/80 overflow-hidden transition-all duration-200">
                         
+                        <!-- Top Live Alert Banner -->
+                        <div id="live-alert-banner" class="hidden m-6 mb-0 p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 flex items-center justify-between shadow-sm animate-pulse">
+                            <div class="flex items-center space-x-3">
+                                <span class="text-2xl animate-bounce shrink-0">🚨</span>
+                                <div>
+                                    <div class="text-xs font-black uppercase tracking-wider text-rose-700" id="live-alert-title" data-i18n="alerts.liveAlertBannerTitle">ALERTE ROUGE EN COURS DÉTECTÉE</div>
+                                    <div class="text-xs font-bold text-rose-900 mt-0.5" id="live-alert-desc">...</div>
+                                </div>
+                            </div>
+                            <button type="button" onclick="document.getElementById('live-alert-banner').classList.add('hidden')" class="p-1.5 hover:bg-rose-200/60 rounded-xl text-rose-600 cursor-pointer">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                            </button>
+                        </div>
+
                         <!-- Top Header & Metrics Banner -->
                         <div class="px-6 py-6 border-b border-slate-100 bg-slate-50/40">
                             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -316,6 +343,10 @@
                                             <span data-i18n="results.participant">Participant</span>
                                             <span id="sort-name" class="ml-1 inline-block w-3 text-slate-600"></span>
                                         </th>
+                                        <th class="px-6 py-4 cursor-pointer hover:text-slate-900 select-none transition" onclick="window.PollApp.toggleSort('location')">
+                                            <span data-i18n="results.locationCol">Localisation & Alerte</span>
+                                            <span id="sort-location" class="ml-1 inline-block w-3 text-slate-600"></span>
+                                        </th>
                                         <th class="px-6 py-4 cursor-pointer hover:text-slate-900 select-none transition" onclick="window.PollApp.toggleSort('status')">
                                             <span data-i18n="results.status">Statut</span>
                                             <span id="sort-status" class="ml-1 inline-block w-3 text-slate-600"></span>
@@ -354,6 +385,38 @@
             </div>
         </div>
     </main>
+
+    <!-- Modal City Selector -->
+    <div id="city-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm hidden">
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden transform transition-all">
+            <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                    <h3 class="text-base font-extrabold text-slate-900" id="city-modal-title" data-i18n="alerts.chooseCityModalTitle">Définir la localisation</h3>
+                    <p class="text-xs text-slate-400 font-medium mt-0.5" data-i18n="alerts.chooseCityModalSubtitle">Recherchez une ville en Israël pour activer la surveillance Tzeva Adom en temps réel</p>
+                </div>
+                <button type="button" onclick="window.PollApp.closeCityModal()" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="relative">
+                    <input type="text" id="city-search-input" oninput="window.PollApp.handleCitySearch(this.value)" class="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-3 text-sm font-semibold text-slate-800 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition shadow-xs" placeholder="Rechercher une ville (ex: Tel Aviv, Ashkelon...)" data-i18n-placeholder="alerts.searchCityPlaceholder">
+                    <svg class="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+                <div id="city-results-list" class="max-h-64 overflow-y-auto space-y-1 divide-y divide-slate-100 pr-1">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+            <div class="p-4 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between">
+                <button type="button" onclick="window.PollApp.clearContactCity()" class="text-xs font-bold text-rose-500 hover:text-rose-700 px-3 py-2 rounded-xl hover:bg-rose-50 transition cursor-pointer" data-i18n="alerts.clearLocation">
+                    Supprimer la localisation
+                </button>
+                <button type="button" onclick="window.PollApp.closeCityModal()" class="text-xs font-bold text-slate-600 hover:text-slate-800 px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 transition cursor-pointer" data-i18n="alerts.cancel">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script src="/js/i18n.js"></script>

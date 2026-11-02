@@ -21,7 +21,15 @@
         blankSpinner: document.getElementById('initial-blank-spinner'),
         loadingTable: document.getElementById('loading-table'),
         btnExportCsv: document.getElementById('btn-export-csv'),
-        btnRemindAll: document.getElementById('btn-remind-all')
+        btnRemindAll: document.getElementById('btn-remind-all'),
+        alertWindowSelect: document.getElementById('alert-window-select'),
+        liveAlertBanner: document.getElementById('live-alert-banner'),
+        liveAlertTitle: document.getElementById('live-alert-title'),
+        liveAlertDesc: document.getElementById('live-alert-desc'),
+        cityModal: document.getElementById('city-modal'),
+        cityModalTitle: document.getElementById('city-modal-title'),
+        citySearchInput: document.getElementById('city-search-input'),
+        cityResultsList: document.getElementById('city-results-list')
     };
 
     let socket = null;
@@ -30,6 +38,8 @@
     let globalPollOptions = [];
     let expectingNewPoll = false;
     let currentSort = { column: 'name', dir: 'asc' };
+    let activeCityContactId = null;
+    let citySearchDebounce = null;
 
     const optionColors = ['bg-green-500', 'bg-blue-500', 'bg-yellow-400', 'bg-purple-500', 'bg-orange-500', 'bg-teal-500'];
 
@@ -167,6 +177,36 @@
                 }
             }
         });
+
+        socket.on('alert_event', (data) => {
+            handleIncomingAlert(data);
+        });
+    }
+
+    function handleIncomingAlert(alertData) {
+        if (!alertData) return;
+        console.log('[REALTIME] Incoming Tzeva Adom alert:', alertData);
+        if (els.liveAlertBanner) {
+            const timeStr = new Date(alertData.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const catLabel = i18n.currentLanguage === 'fr' ? (alertData.categoryFr || alertData.categoryEn) : alertData.categoryEn;
+            if (els.liveAlertTitle) {
+                els.liveAlertTitle.textContent = `${alertData.icon || '🚨'} ${catLabel} [${timeStr}]`;
+            }
+            if (els.liveAlertDesc) {
+                const cityList = (alertData.citiesEn && alertData.citiesEn.length > 0) ? alertData.citiesEn : alertData.cities;
+                const displayCities = (cityList || []).slice(0, 8).join(', ');
+                const extra = (cityList && cityList.length > 8) ? ` +${cityList.length - 8}` : '';
+                els.liveAlertDesc.textContent = `${displayCities}${extra}`;
+            }
+            els.liveAlertBanner.classList.remove('hidden');
+        }
+
+        // Auto-refresh poll stats if a group and poll are currently selected
+        const gid = els.groups.value;
+        const pid = els.polls.value;
+        if (gid && pid) {
+            refreshStats(gid, pid, true);
+        }
     }
 
     async function checkStatus() {
@@ -420,13 +460,27 @@
         }
     }
 
+    function getAlertWindow() {
+        return parseInt(localStorage.getItem('wa_alert_window') || '10', 10);
+    }
+
+    function onAlertWindowChange(val) {
+        localStorage.setItem('wa_alert_window', val);
+        const gid = els.groups.value;
+        const pid = els.polls.value;
+        if (gid && pid) {
+            refreshStats(gid, pid, true);
+        }
+    }
+
     async function refreshStats(gid, pid, silent = false) {
         if (!silent) {
             els.members.innerHTML = '';
             els.loadingTable.classList.remove('hidden');
         }
         try {
-            const res = await api.fetchAuth(`/api/poll-stats/${encodeURIComponent(gid)}/${encodeURIComponent(pid)}`);
+            const alertWindow = getAlertWindow();
+            const res = await api.fetchAuth(`/api/poll-stats/${encodeURIComponent(gid)}/${encodeURIComponent(pid)}?alertWindow=${alertWindow}`);
             if (!res.ok) throw new Error('Stats fetch error');
             const responseData = await res.json();
 
@@ -510,7 +564,8 @@
             if (searchQuery) {
                 const nameMatch = (m.name || '').toLowerCase().includes(searchQuery);
                 const numberMatch = (m.number || '').toLowerCase().includes(searchQuery);
-                if (!nameMatch && !numberMatch) return false;
+                const cityMatch = (m.cityNameEn || '').toLowerCase().includes(searchQuery) || (m.cityName || '').toLowerCase().includes(searchQuery);
+                if (!nameMatch && !numberMatch && !cityMatch) return false;
             }
 
             if (filterVal === 'all') return true;
@@ -537,6 +592,9 @@
             if (currentSort.column === 'name') {
                 valA = (a.name || '').toLowerCase();
                 valB = (b.name || '').toLowerCase();
+            } else if (currentSort.column === 'location') {
+                valA = (a.cityNameEn || a.cityName || '').toLowerCase();
+                valB = (b.cityNameEn || b.cityName || '').toLowerCase();
             } else if (currentSort.column === 'status') {
                 valA = a.hasVoted ? 1 : 0;
                 valB = b.hasVoted ? 1 : 0;
@@ -546,8 +604,12 @@
             return 0;
         });
 
-        document.getElementById('sort-name').textContent = currentSort.column === 'name' ? (currentSort.dir === 'asc' ? '▲' : '▼') : '';
-        document.getElementById('sort-status').textContent = currentSort.column === 'status' ? (currentSort.dir === 'asc' ? '▲' : '▼') : '';
+        const sortNameEl = document.getElementById('sort-name');
+        if (sortNameEl) sortNameEl.textContent = currentSort.column === 'name' ? (currentSort.dir === 'asc' ? '▲' : '▼') : '';
+        const sortLocEl = document.getElementById('sort-location');
+        if (sortLocEl) sortLocEl.textContent = currentSort.column === 'location' ? (currentSort.dir === 'asc' ? '▲' : '▼') : '';
+        const sortStatusEl = document.getElementById('sort-status');
+        if (sortStatusEl) sortStatusEl.textContent = currentSort.column === 'status' ? (currentSort.dir === 'asc' ? '▲' : '▼') : '';
 
         filteredStats.forEach(m => {
             let displayOptions = [];
@@ -603,6 +665,41 @@
                             <div class="text-[11px] font-mono text-slate-500 mt-0.5">${m.number || ''}</div>
                         </div>
                     </div>
+                </td>
+                <td class="px-6 py-4 text-xs">
+                    ${(m.cityNameEn || m.cityName) ? `
+                        <div class="space-y-1.5">
+                            <div class="flex items-center space-x-1.5">
+                                <span class="font-bold text-slate-800 text-xs">${m.cityNameEn || m.cityName}</span>
+                                ${m.cityCountdown ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-600 border border-slate-200/80">⏱️ ${m.cityCountdown}s</span>` : ''}
+                                <button onclick="window.PollApp.openCityModal('${m.id}', '${safeName}', '${(m.cityNameEn || m.cityName).replace(/'/g, "\\'")}')" 
+                                        class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-blue-600 p-0.5 rounded hover:bg-slate-100 transition-opacity cursor-pointer" 
+                                        title="${i18n.t('alerts.chooseCityModalTitle', { name: safeName })}">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                </button>
+                            </div>
+                            <div>
+                                ${(m.alertStatus && m.alertStatus.hasAlert) ? `
+                                    <span class="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-300 shadow-xs animate-pulse">
+                                        <span class="w-2 h-2 rounded-full bg-rose-600"></span>
+                                        <span>${m.alertStatus.icon || '🚨'} ${i18n.currentLanguage === 'fr' ? (m.alertStatus.categoryFr || m.alertStatus.categoryEn) : m.alertStatus.categoryEn}</span>
+                                        <span class="text-[9px] text-rose-500 font-mono">(${m.alertStatus.minutesAgo}m)</span>
+                                    </span>
+                                ` : `
+                                    <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/70 shadow-2xs">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                        <span>${i18n.t('results.safe')}</span>
+                                        <span class="text-[9px] text-emerald-600/70 font-mono">(${getAlertWindow()}m)</span>
+                                    </span>
+                                `}
+                            </div>
+                        </div>
+                    ` : `
+                        <button onclick="window.PollApp.openCityModal('${m.id}', '${safeName}')" class="inline-flex items-center space-x-1 text-[11px] font-semibold text-slate-400 hover:text-blue-600 hover:bg-blue-50/80 px-2.5 py-1 rounded-lg border border-dashed border-slate-200 transition cursor-pointer">
+                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            <span>${i18n.t('results.setLocation')}</span>
+                        </button>
+                    `}
                 </td>
                 <td class="px-6 py-4 text-xs">
                     <div class="flex items-center space-x-2">
@@ -829,10 +926,149 @@
         }
     }
 
+    function openCityModal(contactId, contactName, currentCity = '') {
+        activeCityContactId = contactId;
+        if (els.cityModalTitle) {
+            els.cityModalTitle.textContent = i18n.t('alerts.chooseCityModalTitle', { name: contactName });
+        }
+        if (els.citySearchInput) {
+            els.citySearchInput.value = currentCity || '';
+        }
+        els.cityModal?.classList.remove('hidden');
+        handleCitySearch(currentCity || '');
+        setTimeout(() => els.citySearchInput?.focus(), 50);
+    }
+
+    function closeCityModal() {
+        activeCityContactId = null;
+        els.cityModal?.classList.add('hidden');
+    }
+
+    function handleCitySearch(val) {
+        clearTimeout(citySearchDebounce);
+        citySearchDebounce = setTimeout(async () => {
+            try {
+                const res = await api.fetchAuth('/api/cities/search?q=' + encodeURIComponent(val || ''));
+                if (!res.ok) return;
+                const cities = await res.json();
+                renderCityResults(cities);
+            } catch (e) {
+                console.error('Failed to search cities', e);
+            }
+        }, 120);
+    }
+
+    function renderCityResults(cities) {
+        if (!els.cityResultsList) return;
+        if (!cities || cities.length === 0) {
+            els.cityResultsList.innerHTML = `<div class="p-4 text-center text-xs text-slate-400 font-medium">No cities found</div>`;
+            return;
+        }
+        els.cityResultsList.innerHTML = cities.map(c => `
+            <div onclick="window.PollApp.selectContactCity(${JSON.stringify(c).replace(/"/g, '&quot;')})" 
+                 class="p-2.5 hover:bg-blue-50/80 rounded-xl cursor-pointer flex items-center justify-between group transition">
+                <div>
+                    <div class="text-xs font-bold text-slate-800 group-hover:text-blue-600">${c.nameEn || c.name}</div>
+                    <div class="text-[11px] text-slate-400 font-medium">${c.name} ${c.zoneEn ? `• ${c.zoneEn}` : ''}</div>
+                </div>
+                ${c.countdown ? `
+                    <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 group-hover:bg-blue-100 group-hover:text-blue-700 text-slate-600 border border-slate-200/80">
+                        ⏱️ ${c.countdown}s
+                    </span>
+                ` : ''}
+            </div>
+        `).join('');
+    }
+
+    async function selectContactCity(cityObj) {
+        if (!activeCityContactId || !cityObj) return;
+        const targetId = activeCityContactId;
+        try {
+            const res = await api.fetchAuth('/api/contacts/update-city', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: targetId,
+                    cityId: cityObj.id,
+                    cityName: cityObj.name,
+                    cityNameEn: cityObj.nameEn,
+                    cityCountdown: cityObj.countdown
+                })
+            });
+
+            if (res.ok) {
+                globalStats.forEach(m => {
+                    const cleanMemberId = m.id.split('@')[0];
+                    const cleanTargetId = targetId.split('@')[0];
+                    if (m.id === targetId || cleanMemberId === cleanTargetId) {
+                        m.cityId = cityObj.id;
+                        m.cityName = cityObj.name;
+                        m.cityNameEn = cityObj.nameEn;
+                        m.cityCountdown = cityObj.countdown;
+                    }
+                });
+                closeCityModal();
+                renderTable();
+                const gid = els.groups.value;
+                const pid = els.polls.value;
+                if (gid && pid) refreshStats(gid, pid, true);
+            } else {
+                alert(i18n.t('alerts.cityUpdateFailed'));
+            }
+        } catch (e) {
+            alert(i18n.t('alerts.cityUpdateFailed'));
+        }
+    }
+
+    async function clearContactCity() {
+        if (!activeCityContactId) return;
+        const targetId = activeCityContactId;
+        try {
+            const res = await api.fetchAuth('/api/contacts/update-city', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: targetId,
+                    cityId: null,
+                    cityName: null,
+                    cityNameEn: null,
+                    cityCountdown: null
+                })
+            });
+
+            if (res.ok) {
+                globalStats.forEach(m => {
+                    const cleanMemberId = m.id.split('@')[0];
+                    const cleanTargetId = targetId.split('@')[0];
+                    if (m.id === targetId || cleanMemberId === cleanTargetId) {
+                        m.cityId = null;
+                        m.cityName = null;
+                        m.cityNameEn = null;
+                        m.cityCountdown = null;
+                        m.alertStatus = null;
+                    }
+                });
+                closeCityModal();
+                renderTable();
+                const gid = els.groups.value;
+                const pid = els.polls.value;
+                if (gid && pid) refreshStats(gid, pid, true);
+            } else {
+                alert(i18n.t('alerts.cityUpdateFailed'));
+            }
+        } catch (e) {
+            alert(i18n.t('alerts.cityUpdateFailed'));
+        }
+    }
+
     // Setup event listeners
     window.addEventListener('DOMContentLoaded', async () => {
         await i18n.init();
         initSavedTemplate();
+
+        if (els.alertWindowSelect) {
+            els.alertWindowSelect.value = String(getAlertWindow());
+        }
 
         const pwdInput = document.getElementById('password-input');
         pwdInput?.addEventListener('keydown', (e) => {
@@ -914,6 +1150,12 @@
         updatePollTime,
         sendReminder,
         editContactName,
+        openCityModal,
+        closeCityModal,
+        handleCitySearch,
+        selectContactCity,
+        clearContactCity,
+        onAlertWindowChange,
         toggleSort,
         handleSearch,
         toggleFavoriteGroup,

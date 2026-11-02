@@ -4,6 +4,7 @@ const { initDatabase, closeDatabase } = require('./src/database/db');
 const { createApp } = require('./src/app');
 const { setupSocketIO } = require('./src/socket');
 const whatsappService = require('./src/services/whatsappService');
+const tzevaAdomService = require('./src/services/tzevaAdomService');
 
 async function startServer() {
     try {
@@ -16,7 +17,9 @@ async function startServer() {
         const app = createApp();
         const server = http.createServer(app);
 
-        setupSocketIO(server);
+        const io = setupSocketIO(server);
+        tzevaAdomService.setSocketIO(io);
+        tzevaAdomService.start();
 
         await whatsappService.boot();
 
@@ -27,6 +30,7 @@ async function startServer() {
 
         const shutdown = async () => {
             console.log('\nShutting down gracefully...');
+            tzevaAdomService.stop();
             await whatsappService.disconnect();
             await closeDatabase();
             server.close(() => {

@@ -130,5 +130,68 @@ describe('API Routes Integration', () => {
         const body = await res.json();
         assert.equal(body.error, 'Validation Error');
     });
+
+    it('GET /api/cities/search returns matching cities array', async () => {
+        const res = await fetch(`${baseUrl}/api/cities/search?q=tel`, {
+            headers: { 'x-app-password': config.APP_PASSWORD }
+        });
+
+        assert.equal(res.status, 200);
+        const cities = await res.json();
+        assert.ok(Array.isArray(cities));
+        assert.ok(cities.length > 0);
+        assert.ok(cities.some(c => c.nameEn.toLowerCase().includes('tel aviv')));
+    });
+
+    it('POST /api/contacts/update-city updates contact city successfully', async () => {
+        const res = await fetch(`${baseUrl}/api/contacts/update-city`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-app-password': config.APP_PASSWORD
+            },
+            body: JSON.stringify({
+                id: '972501234567@s.whatsapp.net',
+                cityId: '100',
+                cityName: 'תל אביב - מרכז העיר',
+                cityNameEn: 'Tel Aviv - City Center',
+                cityCountdown: 90
+            })
+        });
+
+        assert.equal(res.status, 200);
+        const body = await res.json();
+        assert.equal(body.success, true);
+        assert.equal(body.contact.cityNameEn, 'Tel Aviv - City Center');
+        assert.equal(body.contact.cityCountdown, 90);
+    });
+
+    it('POST /api/contacts/update-city rejects invalid contact id (edge case)', async () => {
+        const res = await fetch(`${baseUrl}/api/contacts/update-city`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-app-password': config.APP_PASSWORD
+            },
+            body: JSON.stringify({
+                id: '',
+                cityNameEn: 'Haifa'
+            })
+        });
+
+        assert.equal(res.status, 400);
+        const body = await res.json();
+        assert.equal(body.error, 'Validation Error');
+    });
+
+    it('GET /api/alerts/recent returns recent alerts list', async () => {
+        const res = await fetch(`${baseUrl}/api/alerts/recent?window=30`, {
+            headers: { 'x-app-password': config.APP_PASSWORD }
+        });
+
+        assert.equal(res.status, 200);
+        const alerts = await res.json();
+        assert.ok(Array.isArray(alerts));
+    });
 });
 

@@ -42,12 +42,14 @@ class PollController {
         }
 
         const { groupId, pollId } = req.params;
+        const alertWindowMinutes = parseInt(req.query.alertWindow || '10', 10);
 
         try {
             const data = await pollService.getPollStats({
                 whatsappSocket: sock,
                 groupId,
-                pollId
+                pollId,
+                alertWindowMinutes
             });
             return res.json(data);
         } catch (err) {

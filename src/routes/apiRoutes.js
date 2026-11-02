@@ -5,6 +5,7 @@ const authController = require('../controllers/authController');
 const whatsappController = require('../controllers/whatsappController');
 const pollController = require('../controllers/pollController');
 const contactController = require('../controllers/contactController');
+const cityController = require('../controllers/cityController');
 const {
     loginCheckSchema,
     createPollSchema,
@@ -12,7 +13,9 @@ const {
     bulkRemindSchema,
     groupParamSchema,
     pollStatsParamSchema,
-    updateContactNameSchema
+    updateContactNameSchema,
+    updateContactCitySchema,
+    searchCitiesSchema
 } = require('../validators/schemas');
 
 const router = express.Router();
@@ -81,6 +84,21 @@ router.post(
     validate({ body: updateContactNameSchema }),
     contactController.updateContactName
 );
+
+router.post(
+    '/contacts/update-city',
+    validate({ body: updateContactCitySchema }),
+    contactController.updateContactCity
+);
+
+// Cities & Alerts
+router.get(
+    '/cities/search',
+    validate({ query: searchCitiesSchema }),
+    cityController.searchCities
+);
+
+router.get('/alerts/recent', cityController.getRecentAlerts);
 
 module.exports = router;
 

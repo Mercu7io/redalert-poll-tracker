@@ -40,6 +40,18 @@ const updateContactNameSchema = z.object({
     customName: z.string().trim().min(1, 'Name cannot be empty').max(100, 'Name cannot exceed 100 characters')
 });
 
+const updateContactCitySchema = z.object({
+    id: z.string().min(3, 'Invalid contact ID'),
+    cityId: z.coerce.string().optional().nullable(),
+    cityName: z.string().optional().nullable(),
+    cityNameEn: z.string().optional().nullable(),
+    cityCountdown: z.coerce.number().optional().nullable()
+});
+
+const searchCitiesSchema = z.object({
+    q: z.string().optional().default('')
+});
+
 module.exports = {
     loginCheckSchema,
     createPollSchema,
@@ -47,6 +59,8 @@ module.exports = {
     bulkRemindSchema,
     groupParamSchema,
     pollStatsParamSchema,
-    updateContactNameSchema
+    updateContactNameSchema,
+    updateContactCitySchema,
+    searchCitiesSchema
 };
 
