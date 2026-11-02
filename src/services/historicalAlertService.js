@@ -116,3 +116,4 @@ class HistoricalAlertService {
 
 module.exports = new HistoricalAlertService();
 module.exports.HistoricalAlertService = HistoricalAlertService;
+

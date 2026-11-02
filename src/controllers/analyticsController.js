@@ -15,3 +15,4 @@ class AnalyticsController {
 
 module.exports = new AnalyticsController();
 module.exports.AnalyticsController = AnalyticsController;
+

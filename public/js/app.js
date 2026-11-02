@@ -264,6 +264,8 @@
                 document.getElementById('connection-indicator')?.classList.remove('hidden');
                 document.getElementById('nav-drawer-buttons')?.classList.remove('hidden');
                 document.getElementById('nav-drawer-buttons')?.classList.add('flex');
+                document.getElementById('header-context-selector')?.classList.remove('hidden');
+                document.getElementById('header-context-selector')?.classList.add('md:flex');
                 initSocket();
                 checkStatus();
             } else {
@@ -294,6 +296,8 @@
         document.getElementById('connection-indicator')?.classList.add('hidden');
         document.getElementById('nav-drawer-buttons')?.classList.add('hidden');
         document.getElementById('nav-drawer-buttons')?.classList.remove('flex');
+        document.getElementById('header-context-selector')?.classList.add('hidden');
+        document.getElementById('header-context-selector')?.classList.remove('md:flex');
         closeDrawer();
         if (socket) {
             socket.disconnect();
@@ -325,21 +329,37 @@
         const isFav = currentGid && favorites.includes(currentGid);
         const starIcon = document.getElementById('fav-star-icon');
         const starText = document.getElementById('fav-star-text');
-        if (starIcon) {
+        const drawerStarIcon = document.getElementById('drawer-fav-star-icon');
+        const drawerStarText = document.getElementById('drawer-fav-star-text');
+
+        [starIcon, drawerStarIcon].forEach(icon => {
+            if (!icon) return;
             if (isFav) {
-                starIcon.classList.remove('text-slate-400');
-                starIcon.classList.add('text-amber-500');
-                starIcon.setAttribute('fill', 'currentColor');
+                icon.classList.remove('text-slate-400');
+                icon.classList.add('text-amber-500');
+                icon.setAttribute('fill', 'currentColor');
             } else {
-                starIcon.classList.add('text-slate-400');
-                starIcon.classList.remove('text-amber-500');
-                starIcon.setAttribute('fill', 'none');
+                icon.classList.add('text-slate-400');
+                icon.classList.remove('text-amber-500');
+                icon.setAttribute('fill', 'none');
             }
-        }
-        if (starText) {
-            starText.textContent = isFav ? (i18n.t('config.favorited') || 'Favori ⭐') : (i18n.t('config.favorite') || 'Favori');
-            starText.className = isFav ? 'text-[11px] font-bold text-amber-600' : 'text-[11px] font-bold text-slate-400';
-        }
+        });
+
+        [starText, drawerStarText].forEach(text => {
+            if (!text) return;
+            text.textContent = isFav ? (i18n.t('config.favorited') || 'Favori ⭐') : (i18n.t('config.favorite') || 'Favori');
+            text.className = isFav ? 'text-[11px] font-bold text-amber-600' : 'text-[11px] font-bold text-slate-400';
+        });
+
+        updateMobileContextLabel();
+    }
+
+    function updateMobileContextLabel() {
+        const mobileLabel = document.getElementById('mobile-context-label');
+        if (!mobileLabel) return;
+        const groupText = els.groups.options[els.groups.selectedIndex]?.text || '-';
+        const pollText = els.polls.options[els.polls.selectedIndex]?.text || '';
+        mobileLabel.textContent = pollText ? `${groupText} • ${pollText}` : groupText;
     }
 
     function toggleFavoriteGroup() {
@@ -390,6 +410,11 @@
                 els.groups.appendChild(optGroupAll);
             }
 
+            const drawerGroup = document.getElementById('drawer-group-select');
+            if (drawerGroup) {
+                drawerGroup.innerHTML = els.groups.innerHTML;
+            }
+
             const targetGid = preserveGid || localStorage.getItem('wa_selected_group');
             if (targetGid && groups.some(g => g.id === targetGid)) {
                 els.groups.value = targetGid;
@@ -397,6 +422,10 @@
                 els.groups.value = favGroups[0].id;
             } else if (groups.length > 0) {
                 els.groups.value = groups[0].id;
+            }
+
+            if (drawerGroup) {
+                drawerGroup.value = els.groups.value;
             }
 
             updateFavoriteStarState();
@@ -429,6 +458,12 @@
             });
             els.polls.disabled = false;
 
+            const drawerPoll = document.getElementById('drawer-poll-select');
+            if (drawerPoll) {
+                drawerPoll.innerHTML = els.polls.innerHTML;
+                drawerPoll.disabled = false;
+            }
+
             const savedPid = localStorage.getItem('wa_selected_poll');
             if (current && polls.some(p => p.id === current)) {
                 els.polls.value = current;
@@ -443,6 +478,11 @@
                 els.blankText.textContent = i18n.t('results.noPolls');
                 els.blankSpinner.classList.add('hidden');
             }
+
+            if (drawerPoll) {
+                drawerPoll.value = els.polls.value;
+            }
+            updateMobileContextLabel();
         } catch {
             els.blankText.textContent = i18n.t('results.selectToStart');
             els.blankSpinner.classList.add('hidden');
@@ -485,6 +525,20 @@
         const pid = els.polls.value;
         if (gid && pid) {
             refreshStats(gid, pid, true);
+        }
+    }
+
+    function onDrawerGroupChange(gid) {
+        if (els.groups && els.groups.value !== gid) {
+            els.groups.value = gid;
+            els.groups.dispatchEvent(new Event('change'));
+        }
+    }
+
+    function onDrawerPollChange(pid) {
+        if (els.polls && els.polls.value !== pid) {
+            els.polls.value = pid;
+            els.polls.dispatchEvent(new Event('change'));
         }
     }
 
@@ -1645,7 +1699,12 @@
         els.groups.addEventListener('change', (e) => {
             const gid = e.target.value;
             localStorage.setItem('wa_selected_group', gid);
+            const drawerGroup = document.getElementById('drawer-group-select');
+            if (drawerGroup && drawerGroup.value !== gid) {
+                drawerGroup.value = gid;
+            }
             updateFavoriteStarState();
+            updateMobileContextLabel();
             els.results.classList.add('hidden');
             els.blank.classList.remove('hidden');
             if (!gid) {
@@ -1661,7 +1720,13 @@
         });
 
         els.polls.addEventListener('change', () => {
-            localStorage.setItem('wa_selected_poll', els.polls.value);
+            const pid = els.polls.value;
+            localStorage.setItem('wa_selected_poll', pid);
+            const drawerPoll = document.getElementById('drawer-poll-select');
+            if (drawerPoll && drawerPoll.value !== pid) {
+                drawerPoll.value = pid;
+            }
+            updateMobileContextLabel();
             forceSync();
         });
         els.filter.addEventListener('change', renderTable);
@@ -1686,6 +1751,8 @@
             document.getElementById('connection-indicator')?.classList.remove('hidden');
             document.getElementById('nav-drawer-buttons')?.classList.remove('hidden');
             document.getElementById('nav-drawer-buttons')?.classList.add('flex');
+            document.getElementById('header-context-selector')?.classList.remove('hidden');
+            document.getElementById('header-context-selector')?.classList.add('md:flex');
             const labelEl = document.getElementById('active-alert-window-label');
             if (labelEl) labelEl.textContent = `${getAlertWindow()} min`;
             initSocket();
@@ -1697,6 +1764,8 @@
             document.getElementById('connection-indicator')?.classList.add('hidden');
             document.getElementById('nav-drawer-buttons')?.classList.add('hidden');
             document.getElementById('nav-drawer-buttons')?.classList.remove('flex');
+            document.getElementById('header-context-selector')?.classList.add('hidden');
+            document.getElementById('header-context-selector')?.classList.remove('md:flex');
         }
     });
 
@@ -1716,6 +1785,8 @@
         selectContactCityById,
         clearContactCity,
         onAlertWindowChange,
+        onDrawerGroupChange,
+        onDrawerPollChange,
         toggleSort,
         handleSearch,
         toggleFavoriteGroup,
