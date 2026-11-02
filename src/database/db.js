@@ -85,7 +85,19 @@ function initDatabase(customPath = null) {
             `);
             db.run(`CREATE INDEX IF NOT EXISTS idx_alerts_timestamp ON alerts_history(timestamp)`);
             db.run(`CREATE INDEX IF NOT EXISTS idx_contacts_lid ON contacts(lid)`);
-            db.run(`CREATE INDEX IF NOT EXISTS idx_contacts_phone ON contacts(phone_number)`, (err) => {
+            db.run(`CREATE INDEX IF NOT EXISTS idx_contacts_phone ON contacts(phone_number)`);
+
+            // Synchronize any split/orphaned LID contacts with their JID counterpart
+            const syncLidCitiesQuery = `
+                UPDATE contacts 
+                SET city_id = (SELECT c2.city_id FROM contacts c2 WHERE (c2.lid = contacts.id OR c2.id = contacts.lid) AND c2.city_id IS NOT NULL LIMIT 1),
+                    city_name = (SELECT c2.city_name FROM contacts c2 WHERE (c2.lid = contacts.id OR c2.id = contacts.lid) AND c2.city_name IS NOT NULL LIMIT 1),
+                    city_name_en = (SELECT c2.city_name_en FROM contacts c2 WHERE (c2.lid = contacts.id OR c2.id = contacts.lid) AND c2.city_name_en IS NOT NULL LIMIT 1),
+                    city_countdown = (SELECT c2.city_countdown FROM contacts c2 WHERE (c2.lid = contacts.id OR c2.id = contacts.lid) AND c2.city_countdown IS NOT NULL LIMIT 1)
+                WHERE city_name IS NULL 
+                  AND EXISTS (SELECT 1 FROM contacts c2 WHERE (c2.lid = contacts.id OR c2.id = contacts.lid) AND c2.city_name IS NOT NULL)
+            `;
+            db.run(syncLidCitiesQuery, (err) => {
                 if (err) return reject(err);
                 dbInstance = db;
                 resolve(db);

@@ -82,6 +82,11 @@ class ContactRepository {
                 SELECT id, lid, phone_number, name, notify, city_id, city_name, city_name_en, city_countdown 
                 FROM contacts 
                 WHERE id = ? OR lid = ? OR phone_number = ? OR id = ? OR lid = ?
+                ORDER BY 
+                    CASE WHEN city_name IS NOT NULL THEN 1 ELSE 0 END DESC,
+                    CASE WHEN name IS NOT NULL THEN 1 ELSE 0 END DESC,
+                    CASE WHEN phone_number IS NOT NULL THEN 1 ELSE 0 END DESC,
+                    updated_at DESC
                 LIMIT 1
             `;
             db.get(query, [clean, clean, base, jid, lid], (err, row) => {
@@ -101,9 +106,15 @@ class ContactRepository {
         if (!id) return null;
         const db = this.getDb();
         const cleanId = id.split(':')[0];
+        const existing = await this.getByIdOrLid(cleanId);
+
         const baseId = cleanId.split('@')[0];
         const jid = `${baseId}@s.whatsapp.net`;
         const lid = `${baseId}@lid`;
+
+        const linkedLid = existing?.lid ? existing.lid.split(':')[0] : null;
+        const linkedPhone = existing?.phone_number ? existing.phone_number.split('@')[0].replace(/\D/g, '') : null;
+        const linkedJid = linkedPhone ? `${linkedPhone}@s.whatsapp.net` : null;
 
         return new Promise((resolve, reject) => {
             const query = `
@@ -122,8 +133,15 @@ class ContactRepository {
                     UPDATE contacts 
                     SET city_id = ?, city_name = ?, city_name_en = ?, city_countdown = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE id = ? OR lid = ? OR id = ? OR lid = ?
+                       OR ( ? IS NOT NULL AND (id = ? OR lid = ?) )
+                       OR ( ? IS NOT NULL AND (id = ? OR phone_number = ?) )
                 `;
-                db.run(updateAltQuery, [cityId, cityName, cityNameEn, cityCountdown, cleanId, cleanId, jid, lid], function(uErr) {
+                db.run(updateAltQuery, [
+                    cityId, cityName, cityNameEn, cityCountdown, 
+                    cleanId, cleanId, jid, lid,
+                    linkedLid, linkedLid, linkedLid,
+                    linkedPhone, linkedJid, linkedPhone
+                ], function(uErr) {
                     if (uErr) return reject(uErr);
                     resolve({ id: cleanId, cityId, cityName, cityNameEn, cityCountdown });
                 });
@@ -135,9 +153,15 @@ class ContactRepository {
         if (!id || !customName) return null;
         const db = this.getDb();
         const cleanId = id.split(':')[0];
+        const existing = await this.getByIdOrLid(cleanId);
+
         const baseId = cleanId.split('@')[0];
         const jid = `${baseId}@s.whatsapp.net`;
         const lid = `${baseId}@lid`;
+
+        const linkedLid = existing?.lid ? existing.lid.split(':')[0] : null;
+        const linkedPhone = existing?.phone_number ? existing.phone_number.split('@')[0].replace(/\D/g, '') : null;
+        const linkedJid = linkedPhone ? `${linkedPhone}@s.whatsapp.net` : null;
 
         return new Promise((resolve, reject) => {
             db.serialize(() => {
@@ -151,12 +175,33 @@ class ContactRepository {
                 db.run(upsertContactQuery, [cleanId, customName], (err) => {
                     if (err) return reject(err);
 
+                    const updateContactsQuery = `
+                        UPDATE contacts 
+                        SET name = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ? OR lid = ? OR id = ? OR lid = ?
+                           OR ( ? IS NOT NULL AND (id = ? OR lid = ?) )
+                           OR ( ? IS NOT NULL AND (id = ? OR phone_number = ?) )
+                    `;
+                    db.run(updateContactsQuery, [
+                        customName,
+                        cleanId, cleanId, jid, lid,
+                        linkedLid, linkedLid, linkedLid,
+                        linkedPhone, linkedJid, linkedPhone
+                    ], () => {});
+
                     const updateVotesQuery = `
                         UPDATE votes 
                         SET voter_name = ? 
                         WHERE voter_id = ? OR voter_id = ? OR voter_id = ?
+                           OR ( ? IS NOT NULL AND voter_id = ? )
+                           OR ( ? IS NOT NULL AND voter_id = ? )
                     `;
-                    db.run(updateVotesQuery, [customName, cleanId, jid, lid], function(vErr) {
+                    db.run(updateVotesQuery, [
+                        customName, 
+                        cleanId, jid, lid,
+                        linkedLid, linkedLid,
+                        linkedJid, linkedJid
+                    ], function(vErr) {
                         if (vErr) return reject(vErr);
                         resolve({ id: cleanId, name: customName, votesUpdated: this.changes });
                     });

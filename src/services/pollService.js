@@ -227,13 +227,28 @@ class PollService {
                 if (mappedPhone) rawPhone = mappedPhone.split('@')[0].replace(/\D/g, '');
             }
 
-            let dbContact = await contactRepository.getByIdOrLid(cleanId || cleanLid || rawPhone);
+            let dbContact = await contactRepository.getByIdOrLid(rawPhone || cleanLid || cleanId);
             if (dbContact) {
                 if (!rawPhone && dbContact.phone_number) {
                     rawPhone = dbContact.phone_number.split('@')[0].replace(/\D/g, '');
                 }
                 if (!cleanLid && dbContact.lid) {
                     cleanLid = dbContact.lid.split(':')[0];
+                }
+            } else if (cleanLid) {
+                dbContact = await contactRepository.getByIdOrLid(cleanLid);
+            } else if (cleanId) {
+                dbContact = await contactRepository.getByIdOrLid(cleanId);
+            }
+
+            if (dbContact && !dbContact.city_name) {
+                if (rawPhone) {
+                    const altByPhone = await contactRepository.getByIdOrLid(rawPhone);
+                    if (altByPhone && altByPhone.city_name) dbContact = altByPhone;
+                }
+                if ((!dbContact || !dbContact.city_name) && cleanLid) {
+                    const altByLid = await contactRepository.getByIdOrLid(cleanLid);
+                    if (altByLid && altByLid.city_name) dbContact = altByLid;
                 }
             }
 
@@ -370,7 +385,11 @@ class PollService {
                 const isLid = cleanVoterId.includes('@lid');
                 const baseId = cleanVoterId.split('@')[0].replace(/\D/g, '');
 
-                const dbVoter = await contactRepository.getByIdOrLid(cleanVoterId);
+                let dbVoter = await contactRepository.getByIdOrLid(cleanVoterId);
+                if (dbVoter && !dbVoter.city_name && baseId) {
+                    const altVoter = await contactRepository.getByIdOrLid(baseId);
+                    if (altVoter && altVoter.city_name) dbVoter = altVoter;
+                }
                 const cityId = dbVoter?.city_id || null;
                 const cityName = dbVoter?.city_name || null;
                 const cityNameEn = dbVoter?.city_name_en || null;

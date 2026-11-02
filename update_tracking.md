@@ -24,6 +24,7 @@
 - 2026-11-01: Unification du sélecteur de langue dans la barre supérieure, suppression du sélecteur en doublon sur la carte de connexion et masquage du bouton de déconnexion pour les utilisateurs non authentifiés.
 - 2026-11-02: Intégration complète des alertes Tzeva Adom / Pikud HaOref (WebSocket Tzofar temps réel, 1 451 villes israéliennes, fenêtre d'alerte paramétrable, modal de recherche de ville et colonne dédiée Localisation & Alerte avec indicateurs 🟢/🔴 dynamiques).
 - 2026-11-02: Correction de l'autocomplétion des villes (sélection sécurisée par identifiant numérique unique, affichage immédiat des villes principales et redémarrage du serveur avec le nouveau code).
+- 2026-11-02: Correction de la persistance multi-identités (LID vs JID) de la ville d'un contact et synchronisation bidirectionnelle dans SQLite.
 
 
 

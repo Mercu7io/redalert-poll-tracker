@@ -1028,7 +1028,8 @@
                 globalStats.forEach(m => {
                     const cleanMemberId = m.id.split('@')[0];
                     const cleanTargetId = targetId.split('@')[0];
-                    if (m.id === targetId || cleanMemberId === cleanTargetId) {
+                    const cleanLid = m.lid ? m.lid.split('@')[0] : '';
+                    if (m.id === targetId || cleanMemberId === cleanTargetId || (m.lid && m.lid === targetId) || (cleanLid && cleanLid === cleanTargetId)) {
                         m.cityId = cityObj.id;
                         m.cityName = cityObj.name;
                         m.cityNameEn = cityObj.nameEn;
@@ -1068,7 +1069,8 @@
                 globalStats.forEach(m => {
                     const cleanMemberId = m.id.split('@')[0];
                     const cleanTargetId = targetId.split('@')[0];
-                    if (m.id === targetId || cleanMemberId === cleanTargetId) {
+                    const cleanLid = m.lid ? m.lid.split('@')[0] : '';
+                    if (m.id === targetId || cleanMemberId === cleanTargetId || (m.lid && m.lid === targetId) || (cleanLid && cleanLid === cleanTargetId)) {
                         m.cityId = null;
                         m.cityName = null;
                         m.cityNameEn = null;
