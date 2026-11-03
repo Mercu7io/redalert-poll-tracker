@@ -1,139 +1,139 @@
 # RedAlert Poll Tracker 🚨
 
-Une application moderne et temps réel pour le **suivi des sondages WhatsApp**, la **gestion de crise** et la corrélation instantanée avec les **alertes nationales Tzeva Adom (Pikud HaOref)**.
+A modern, real-time web application for **WhatsApp poll tracking**, **community crisis response**, and live correlation with **Israel's national Tzeva Adom (Pikud HaOref) emergency sirens**.
 
-Conçue avec Node.js, [Baileys](https://github.com/WhiskeySockets/Baileys) (100% headless, sans Chromium ni interface lourde), SQLite (mode WAL), Socket.IO et Tailwind CSS.
-
----
-
-## ✨ Fonctionnalités Principales
-
-- **⚡ Moteur Baileys ultra-léger** : Aucun navigateur Chromium requis, démarrage instantané et empreinte mémoire minimale (~60 Mo de RAM).
-- **🔴 Intégration Tzeva Adom en temps réel** : Flux direct WebSocket Tzofar (1 450+ villes géolocalisées, détection de roquettes 🚀, drones 🛸, infiltrations ⚠️, temps d'abri).
-- **📊 Suivi temps réel des sondages** : Mise à jour automatique des votes en direct par Socket.IO sans rechargement.
-- **🛡️ Alertes d'urgence automatiques** : Notification WhatsApp immédiate en cas de réponse critique (*"Aide"*, *"Help"*, *"SOS"*).
-- **📈 Statistiques & Analyses de Crise** :
-  - Bilans par période : **Dernière heure (1h)**, 24h, 7 jours, 30 jours (mois), 1 an et historique total.
-  - **Recherche par membre** : Bilan multi-périodes instantané d'exposition aux alertes pour n'importe quel contact.
-- **👥 Annuaire & Gestion multi-identités** :
-  - Résolution des identifiants modernes WhatsApp (**LID** vs numéro international).
-  - Déduplication stricte des participants et assignation de villes individuelle ou en lot.
-- **🔔 Relances automatiques** : Envoi de rappels individuels ou groupés aux retardataires avec personnalisation dynamique du prénom `[Name]`.
-- **📥 Export CSV & Sauvegarde ZIP** : Export des votes et sauvegarde/restauration complète de la base en 1 clic.
-- **🌍 Bilingue natif (FR / EN)** : Changement de langue dynamique à chaud.
+Powered by Node.js, [Baileys](https://github.com/WhiskeySockets/Baileys) (100% headless, no Chromium or heavy browser needed), SQLite (WAL mode), Socket.IO, and Tailwind CSS.
 
 ---
 
-## 🚀 Démarrage Rapide avec Docker (Prêt à l'emploi)
+## ✨ Key Features
 
-L'image officielle est pré-construite et prête à l'emploi sur le registre GitHub (`ghcr.io`). **Aucune compilation ni installation de code n'est nécessaire.**
+- **⚡ Ultra-lightweight Baileys Engine**: Headless WhatsApp protocol engine consuming minimal RAM (~60MB), booting instantly.
+- **🔴 Real-time Tzeva Adom Siren Integration**: Live WebSocket connection to Tzofar (1,450+ geolocated Israeli cities, detecting rockets 🚀, hostile drones 🛸, terrorist infiltrations ⚠️, shelter countdowns).
+- **📊 Real-time Poll Tracking**: Live vote ingestion and cryptographic decryption via Socket.IO without page refreshes.
+- **🛡️ Automated Emergency Alerts**: Instant WhatsApp alert notifications triggered when someone votes for a help option (*"Need help"*, *"SOS"*, *"Aide"*).
+- **📈 Crisis Statistics & Exposure Analytics**:
+  - Filter by period: **Last 1 hour (1h)**, 24 hours, 7 days, 30 days (Month), 1 year, and all-time history.
+  - **Member Search & Breakdown**: Instant multi-period alert history and threat breakdown for any specific contact.
+- **👥 Contact Directory & Multi-Identity Resolution**:
+  - Automatically reconciles WhatsApp **LID** (Linked Identifier) with international phone numbers.
+  - Strict deduplication, group filtering, and individual or batch city assignment.
+- **🔔 Smart Automated Reminders**: Send follow-up WhatsApp reminders to pending members with dynamic `[Name]` personalization.
+- **📥 CSV Export & Complete ZIP Backups**: One-click download of vote logs and full database backup/restore.
+- **🌍 Native Bilingual UI (English / French)**: Switch languages on the fly.
 
 ---
 
-### Option A : Avec Docker Compose (Recommandé)
+## 🚀 Quick Start with Docker (Ready-to-Use)
 
-1. Créez un dossier sur votre machine et placez-vous dedans :
+The pre-built image is published and ready to pull from GitHub Container Registry (`ghcr.io`). **No code cloning or compilation required.**
+
+---
+
+### Option A: With Docker Compose (Recommended)
+
+1. Create a dedicated folder and move into it:
    ```bash
-   mkdir wa-poll-tracker && cd wa-poll-tracker
+   mkdir redalert-poll-tracker && cd redalert-poll-tracker
    ```
 
-2. Créez un fichier `docker-compose.yml` avec le contenu suivant :
+2. Create a `docker-compose.yml` file:
    ```yaml
    services:
-     wa-poll-tracker:
+     redalert-poll-tracker:
        image: ghcr.io/mercu7io/redalert-poll-tracker:latest
-       container_name: wa-poll-tracker
+       container_name: redalert-poll-tracker
        restart: unless-stopped
        ports:
          - "3500:3500"
        environment:
          - PORT=3500
-         - APP_PASSWORD=VotreMotDePasseSecret
-         - ALERT_LANGUAGE=fr
-         # - ALERT_TARGET_NUMBER=972501234567 # (Optionnel) Numéro WhatsApp recevant les alertes d'urgence
+         - APP_PASSWORD=ChangeThisPassword123
+         - ALERT_LANGUAGE=en # or 'fr'
+         # - ALERT_TARGET_NUMBER=972501234567 # (Optional) Phone number receiving SOS alerts
        volumes:
          - ./data:/app/data
          - ./.baileys_auth:/app/.baileys_auth
    ```
 
-3. Lancez le conteneur en arrière-plan :
+3. Start the container in the background:
    ```bash
    docker compose up -d
    ```
 
-4. Ouvrez votre navigateur sur **`http://localhost:3500`**.
+4. Open your browser at **`http://localhost:3500`**.
 
 ---
 
-### Option B : Avec Docker en une seule ligne (Docker Simple)
+### Option B: With Docker CLI (Single Command)
 
-Si vous n'utilisez pas Docker Compose, lancez directement cette commande :
+Run the container directly with one command:
 
 ```bash
 docker run -d \
-  --name wa-poll-tracker \
+  --name redalert-poll-tracker \
   --restart unless-stopped \
   -p 3500:3500 \
-  -e APP_PASSWORD="VotreMotDePasseSecret" \
-  -e ALERT_LANGUAGE="fr" \
+  -e APP_PASSWORD="ChangeThisPassword123" \
+  -e ALERT_LANGUAGE="en" \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/.baileys_auth:/app/.baileys_auth \
   ghcr.io/mercu7io/redalert-poll-tracker:latest
 ```
 
-*(Sous Windows PowerShell, remplacez `$(pwd)` par `${PWD}`)*
+*(On Windows PowerShell, use `${PWD}` instead of `$(pwd)`)*
 
 ---
 
-## 🔑 Première Utilisation (3 étapes simples)
+## 🔑 First-Time Setup (3 Easy Steps)
 
-1. **Connexion Web** : Rendez-vous sur `http://localhost:3500` et entrez votre mot de passe (`APP_PASSWORD`).
-2. **Liaison WhatsApp** : Scannez le QR Code affiché à l'écran depuis WhatsApp sur votre téléphone (*Menu > Appareils connectés > Connecter un appareil*).
-3. **Prêt !** : Vos groupes et sondages se synchronisent immédiatement. Vous pouvez diffuser de nouveaux sondages, suivre les votes et visualiser les alertes.
+1. **Access Web Interface**: Go to `http://localhost:3500` and enter your password (`APP_PASSWORD`).
+2. **Link WhatsApp**: Open WhatsApp on your phone (*Settings > Linked Devices > Link a Device*) and scan the QR code displayed on the screen.
+3. **Done!**: Your participating groups and polls will synchronize automatically. You can broadcast polls, track votes, and monitor sirens in real time.
 
 ---
 
-## ⚙️ Variables d'environnement
+## ⚙️ Environment Variables
 
-| Variable | Description | Valeur par défaut |
+| Variable | Description | Default |
 | :--- | :--- | :--- |
-| `PORT` | Port d'écoute du serveur Web | `3500` |
-| `APP_PASSWORD` | Mot de passe d'accès à l'interface | `admin123` *(à modifier)* |
-| `ALERT_LANGUAGE` | Langue de l'interface et des notifications WhatsApp (`fr` ou `en`) | `fr` |
-| `ALERT_TARGET_NUMBER` | Numéro international recevant les notifications d'urgence SOS (ex: `972501234567` ou `33612345678`) | *(Optionnel : par défaut envoyé à vous-même)* |
+| `PORT` | Web interface port | `3500` |
+| `APP_PASSWORD` | Access password for the web dashboard | `admin123` *(change in production)* |
+| `ALERT_LANGUAGE` | Default language for UI and alert messages (`en` or `fr`) | `en` |
+| `ALERT_TARGET_NUMBER` | WhatsApp number receiving urgent SOS alerts (e.g. `972501234567` or `33612345678`) | *(Optional: defaults to self)* |
 
 ---
 
-## 💾 Persistance des Données lors des Mises à Jour
+## 💾 Data Persistence Across Updates
 
-Toutes vos données sont stockées sur votre machine hôte grâce aux volumes :
-- `./data` : Base de données SQLite (`sondages.db`) contenant l'annuaire, les villes des contacts, l'historique des sondages et des alertes.
-- `./.baileys_auth` : Clés de session WhatsApp chiffrées (vous n'avez pas besoin de rescanner le QR code après un redémarrage ou une mise à jour).
+All your persistent data is saved on the host machine through mounted volumes:
+- `./data`: SQLite database (`sondages.db`) containing the contact directory, assigned cities, and poll & alert history.
+- `./.baileys_auth`: Encrypted WhatsApp session keys (you do **not** need to rescan the QR code after container restarts or updates).
 
-Pour mettre à jour l'application avec la dernière version :
+To update the application to the latest version:
 ```bash
 docker compose pull
 docker compose up -d
 ```
-Vos données et votre session WhatsApp sont **100% préservées**.
+All your data and WhatsApp credentials will be **100% preserved**.
 
 ---
 
-## 🧪 Tests & Développement Local
+## 🧪 Local Development & Testing
 
-Pour les développeurs souhaitant modifier le code source :
+For contributors who want to modify or run the code locally:
 
 ```bash
 git clone https://github.com/Mercu7io/redalert-poll-tracker.git
 cd redalert-poll-tracker
 npm install
-npm test       # Lance la suite complète de 75 tests automatisés
-npm start      # Démarre l'application localement
+npm test       # Runs the complete automated test suite (75 tests)
+npm start      # Starts development server locally
 ```
 
 ---
 
-## 📄 Licence
+## 📄 License
 
 MIT
 
