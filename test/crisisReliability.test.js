@@ -220,4 +220,42 @@ describe('Crisis & Life-Safety Reliability Suite', () => {
             assert.equal(stats[0].cityCountdown, 90);
         });
     });
+
+    describe('Memory Leak Prevention & WhatsApp Stability Suite', () => {
+        it('caps pollCache size to maxPollCacheSize and evicts oldest items', () => {
+            const whatsappService = require('../src/services/whatsappService');
+            whatsappService.pollCache.clear();
+            whatsappService.maxPollCacheSize = 5; // Set small for testing
+
+            for (let i = 1; i <= 8; i++) {
+                whatsappService.setPollCache(`poll-${i}`, { title: `Poll ${i}` });
+            }
+
+            assert.equal(whatsappService.pollCache.size, 5);
+            // Oldest items (1, 2, 3) should have been evicted
+            assert.equal(whatsappService.pollCache.has('poll-1'), false);
+            assert.equal(whatsappService.pollCache.has('poll-2'), false);
+            assert.equal(whatsappService.pollCache.has('poll-3'), false);
+            // Recent items (4, 5, 6, 7, 8) should be present
+            assert.equal(whatsappService.pollCache.has('poll-4'), true);
+            assert.equal(whatsappService.pollCache.has('poll-8'), true);
+
+            // Reset back to standard
+            whatsappService.maxPollCacheSize = 100;
+            whatsappService.pollCache.clear();
+        });
+
+        it('bounds contactCache lidMap and prevents memory growth (edge case)', () => {
+            const { ContactCache } = require('../src/services/contactCache');
+            const cache = new ContactCache(10); // max 10
+
+            for (let i = 1; i <= 20; i++) {
+                cache.setLidMapping(`lid-${i}`, `jid-${i}`);
+            }
+
+            assert.equal(cache.lidMap.size, 10);
+            assert.equal(cache.lidMap.has('lid-1'), false);
+            assert.equal(cache.lidMap.has('lid-20'), true);
+        });
+    });
 });

@@ -3,6 +3,7 @@ const { decryptPollVote } = require('@whiskeysockets/baileys');
 const pollRepository = require('../repositories/pollRepository');
 const voteRepository = require('../repositories/voteRepository');
 const contactRepository = require('../repositories/contactRepository');
+const alertRepository = require('../repositories/alertRepository');
 const contactCache = require('./contactCache');
 const tzevaAdomService = require('./tzevaAdomService');
 
@@ -168,9 +169,42 @@ class PollService {
         }
 
         let pollOptions = [];
+        let pollTimestamp = null;
         const rawMessage = await pollRepository.getRawMessage(pollId);
         if (rawMessage) {
             pollOptions = this.extractPollOptions(rawMessage);
+            try {
+                const parsed = JSON.parse(rawMessage, bufferReviver);
+                if (parsed?.messageTimestamp) {
+                    pollTimestamp = Number(parsed.messageTimestamp);
+                }
+            } catch {}
+        }
+        if (!pollTimestamp) {
+            try {
+                const dbPoll = await pollRepository.getById(pollId);
+                if (dbPoll?.timestamp) {
+                    pollTimestamp = Math.floor(new Date(dbPoll.timestamp).getTime() / 1000);
+                }
+            } catch {}
+        }
+
+        // Retrieve historical SQLite alerts within window around poll timestamp
+        let windowAlerts = [];
+        try {
+            const refTime = pollTimestamp || Math.floor(Date.now() / 1000);
+            const windowSec = Number(alertWindowMinutes) * 60;
+            const nowSec = Math.floor(Date.now() / 1000);
+            const fromTime = refTime - windowSec;
+            const toTime = (nowSec - refTime <= 7200 && nowSec >= refTime)
+                ? Math.max(refTime + windowSec, nowSec)
+                : (refTime + windowSec);
+
+            if (alertRepository && typeof alertRepository.getAlertsInWindow === 'function') {
+                windowAlerts = await alertRepository.getAlertsInWindow(fromTime, toTime);
+            }
+        } catch (e) {
+            // Graceful fallback to memory alerts
         }
 
         // Build complete set of bot identifiers (JIDs, LIDs, and pure phone digits)
@@ -376,7 +410,12 @@ class PollService {
 
             const hasVoted = !!(vote && Array.isArray(parsedOptions) && parsedOptions.length > 0);
             const displayName = (vote && vote.voter_name && !vote.voter_name.startsWith('+')) ? vote.voter_name : m.name;
-            const alertStatus = tzevaAdomService.checkCityAlertStatus(m.cityName || m.cityNameEn, alertWindowMinutes);
+            const alertStatus = tzevaAdomService.checkCityAlertStatus(
+                m.cityName || m.cityNameEn,
+                alertWindowMinutes,
+                pollTimestamp,
+                windowAlerts
+            );
 
             return {
                 id: m.id,
@@ -420,7 +459,12 @@ class PollService {
                 const cityName = dbVoter?.city_name || null;
                 const cityNameEn = dbVoter?.city_name_en || null;
                 const cityCountdown = dbVoter?.city_countdown || null;
-                const alertStatus = tzevaAdomService.checkCityAlertStatus(cityName || cityNameEn, alertWindowMinutes);
+                const alertStatus = tzevaAdomService.checkCityAlertStatus(
+                    cityName || cityNameEn,
+                    alertWindowMinutes,
+                    pollTimestamp,
+                    windowAlerts
+                );
 
                 stats.push({
                     id: cleanVoterId,

@@ -1461,8 +1461,12 @@
         setTimeout(() => els.citySearchInput?.focus(), 50);
     }
 
-    async function loadAnalytics(period = '24h') {
-        const periods = ['24h', '7d', '30d', 'all'];
+    let currentAnalyticsPeriod = '24h';
+    let memberSearchTimeout = null;
+
+    async function loadAnalytics(period = currentAnalyticsPeriod, memberSearch = null) {
+        currentAnalyticsPeriod = period;
+        const periods = ['1h', '24h', '7d', '30d', '1y', 'all'];
         periods.forEach(p => {
             const btn = document.getElementById(`analytics-btn-${p}`);
             if (p === period) {
@@ -1475,7 +1479,13 @@
         });
 
         try {
-            const res = await api.fetchAuth(`/api/stats/summary?period=${period}`);
+            let url = `/api/stats/summary?period=${period}`;
+            const searchVal = memberSearch !== null ? memberSearch : (document.getElementById('analytics-member-search')?.value || '');
+            if (searchVal && searchVal.trim()) {
+                url += `&memberSearch=${encodeURIComponent(searchVal.trim())}`;
+            }
+
+            const res = await api.fetchAuth(url);
             if (res.ok) {
                 const data = await res.json();
                 renderAnalytics(data);
@@ -1483,6 +1493,159 @@
         } catch (e) {
             console.error('[ANALYTICS] Load error:', e);
         }
+    }
+
+    function onMemberSearch(val) {
+        const clearBtn = document.getElementById('analytics-clear-member-btn');
+        if (clearBtn) {
+            if (val && val.trim()) clearBtn.classList.remove('hidden');
+            else clearBtn.classList.add('hidden');
+        }
+
+        if (memberSearchTimeout) clearTimeout(memberSearchTimeout);
+        memberSearchTimeout = setTimeout(() => {
+            loadAnalytics(currentAnalyticsPeriod, val);
+            if (val && val.trim().length >= 3) {
+                // Also attempt to load detailed member card if exact match or single member
+                api.fetchAuth(`/api/stats/member?search=${encodeURIComponent(val.trim())}`).then(async res => {
+                    if (res.ok) {
+                        const data = await res.json();
+                        renderMemberDetailCard(data);
+                    }
+                }).catch(() => {});
+            } else if (!val || !val.trim()) {
+                const card = document.getElementById('analytics-member-detail-card');
+                if (card) card.classList.add('hidden');
+            }
+        }, 300);
+    }
+
+    async function loadMemberStats(identifier) {
+        if (!identifier) return;
+        try {
+            const res = await api.fetchAuth(`/api/stats/member?identifier=${encodeURIComponent(identifier)}`);
+            if (res.ok) {
+                const data = await res.json();
+                renderMemberDetailCard(data);
+                const card = document.getElementById('analytics-member-detail-card');
+                card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        } catch (e) {
+            console.error('[ANALYTICS] Member stats error:', e);
+        }
+    }
+
+    function clearMemberStats() {
+        const searchInput = document.getElementById('analytics-member-search');
+        if (searchInput) searchInput.value = '';
+        const clearBtn = document.getElementById('analytics-clear-member-btn');
+        if (clearBtn) clearBtn.classList.add('hidden');
+        const card = document.getElementById('analytics-member-detail-card');
+        if (card) card.classList.add('hidden');
+        loadAnalytics(currentAnalyticsPeriod, '');
+    }
+
+    function renderMemberDetailCard(data) {
+        const card = document.getElementById('analytics-member-detail-card');
+        if (!card) return;
+
+        if (!data || !data.found || !data.member) {
+            card.classList.add('hidden');
+            return;
+        }
+
+        const m = data.member;
+        const counts = data.periodCounts || {};
+        const safeName = (m.name || 'Member').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const safePhone = m.phoneNumber || '';
+        const safeCity = m.cityNameEn || m.cityName || i18n.t('analytics.memberNoCity');
+        const countdownBadge = m.countdown ? `⏱️ ${m.countdown}s` : '';
+
+        const catBadges = (data.categoryBreakdown || []).map(cat => `
+            <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-lg bg-slate-800/80 border border-slate-700 text-[11px] font-bold text-slate-200">
+                <span>${cat.icon}</span>
+                <span>${i18n.currentLanguage === 'fr' ? cat.titleFr : cat.titleEn}:</span>
+                <span class="font-mono text-amber-400 font-extrabold">${cat.count}</span>
+            </span>
+        `).join('');
+
+        const recentList = (data.recentAlerts || []).slice(0, 5).map(a => {
+            const timeStr = a.date ? new Date(a.date).toLocaleDateString(i18n.currentLanguage === 'fr' ? 'fr-FR' : 'en-US', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            }) : '';
+            return `
+                <div class="flex items-center justify-between py-1 border-b border-slate-700/40 text-[11px]">
+                    <span class="text-slate-300 font-medium">${a.icon} ${i18n.currentLanguage === 'fr' ? a.titleFr : a.titleEn}</span>
+                    <span class="text-slate-400 font-mono text-[10px]">${timeStr}</span>
+                </div>
+            `;
+        }).join('');
+
+        card.innerHTML = `
+            <div class="flex items-start justify-between">
+                <div class="flex items-center space-x-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-sm font-black text-white shadow-xs">
+                        ${safeName.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-black text-white">${safeName}</h4>
+                        <div class="text-[11px] text-slate-300 flex items-center space-x-1.5 font-medium">
+                            <span>${safePhone}</span>
+                            <span>•</span>
+                            <span class="text-emerald-400 font-bold">📍 ${safeCity}</span>
+                            ${countdownBadge ? `<span class="text-amber-400 font-bold font-mono">(${countdownBadge})</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+                <button onclick="window.PollApp.clearMemberStats()" class="text-slate-400 hover:text-white p-1 rounded-lg text-sm font-bold cursor-pointer transition">✕</button>
+            </div>
+
+            <!-- 6-Grid Multi-Period Alerts Breakdown -->
+            <div class="grid grid-cols-6 gap-1.5 pt-1 text-center font-mono">
+                <div class="bg-slate-800/90 border border-slate-700/80 p-2 rounded-xl">
+                    <div class="text-[9px] uppercase tracking-wider text-slate-400 font-sans font-bold">1h</div>
+                    <div class="text-base font-black ${counts['1h'] > 0 ? 'text-rose-400 font-extrabold animate-pulse' : 'text-slate-200'}">${counts['1h'] || 0}</div>
+                </div>
+                <div class="bg-slate-800/90 border border-slate-700/80 p-2 rounded-xl">
+                    <div class="text-[9px] uppercase tracking-wider text-slate-400 font-sans font-bold">24h</div>
+                    <div class="text-base font-black ${counts['24h'] > 0 ? 'text-rose-400 font-extrabold' : 'text-slate-200'}">${counts['24h'] || 0}</div>
+                </div>
+                <div class="bg-slate-800/90 border border-slate-700/80 p-2 rounded-xl">
+                    <div class="text-[9px] uppercase tracking-wider text-slate-400 font-sans font-bold">7j</div>
+                    <div class="text-base font-black ${counts['7d'] > 0 ? 'text-amber-400' : 'text-slate-200'}">${counts['7d'] || 0}</div>
+                </div>
+                <div class="bg-slate-800/90 border border-slate-700/80 p-2 rounded-xl">
+                    <div class="text-[9px] uppercase tracking-wider text-slate-400 font-sans font-bold">30j</div>
+                    <div class="text-base font-black ${counts['30d'] > 0 ? 'text-amber-300' : 'text-slate-200'}">${counts['30d'] || 0}</div>
+                </div>
+                <div class="bg-slate-800/90 border border-slate-700/80 p-2 rounded-xl">
+                    <div class="text-[9px] uppercase tracking-wider text-slate-400 font-sans font-bold">1 an</div>
+                    <div class="text-base font-black text-slate-100">${counts['1y'] || 0}</div>
+                </div>
+                <div class="bg-slate-800/90 border border-slate-700/80 p-2 rounded-xl">
+                    <div class="text-[9px] uppercase tracking-wider text-slate-400 font-sans font-bold">Total</div>
+                    <div class="text-base font-black text-slate-100">${counts['all'] || 0}</div>
+                </div>
+            </div>
+
+            <!-- Threat categories for member -->
+            ${catBadges ? `
+                <div class="pt-1">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1.5">${i18n.t('analytics.threatCategories')}</div>
+                    <div class="flex flex-wrap gap-1">${catBadges}</div>
+                </div>
+            ` : ''}
+
+            <!-- Recent Sirens in City -->
+            ${recentList ? `
+                <div class="pt-1">
+                    <div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1">${i18n.t('analytics.recentCityAlerts')} (${safeCity})</div>
+                    <div class="space-y-0.5">${recentList}</div>
+                </div>
+            ` : ''}
+        `;
+
+        card.classList.remove('hidden');
     }
 
     function renderAnalytics(data) {
@@ -1540,17 +1703,20 @@
                 exposedList.innerHTML = `<div class="p-6 text-center text-xs text-slate-400 font-medium">${i18n.t('analytics.noData')}</div>`;
             } else {
                 exposedList.innerHTML = data.memberImpact.map((m, idx) => `
-                    <div class="p-3 flex items-center justify-between text-xs">
+                    <div onclick="window.PollApp.loadMemberStats('${m.id}')" class="p-3 flex items-center justify-between text-xs hover:bg-blue-50/60 transition cursor-pointer group">
                         <div class="flex items-center space-x-2.5">
                             <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${idx === 0 ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-600'}">${idx + 1}</span>
                             <div>
-                                <div class="font-extrabold text-slate-800">${m.name}</div>
+                                <div class="font-extrabold text-slate-800 group-hover:text-blue-700 transition">${m.name}</div>
                                 <div class="text-[10px] text-slate-400">${m.cityNameEn || m.cityName} ${m.countdown ? `• ⏱️ ${m.countdown}s` : ''}</div>
                             </div>
                         </div>
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black bg-rose-50 text-rose-700 border border-rose-200">
-                            🚨 ${m.alertsReceived}
-                        </span>
+                        <div class="flex items-center space-x-2">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black bg-rose-50 text-rose-700 border border-rose-200">
+                                🚨 ${m.alertsReceived}
+                            </span>
+                            <span class="text-slate-300 group-hover:text-blue-500 transition text-xs font-bold">➔</span>
+                        </div>
                     </div>
                 `).join('');
             }
@@ -1785,6 +1951,9 @@
         toggleSelectContact,
         openBatchCityModal,
         loadAnalytics,
+        onMemberSearch,
+        loadMemberStats,
+        clearMemberStats,
         syncHistoricalAlerts,
         purgeOldAlerts,
         downloadBackupZip,

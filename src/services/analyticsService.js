@@ -1,6 +1,6 @@
 const alertRepository = require('../repositories/alertRepository');
 const contactRepository = require('../repositories/contactRepository');
-const { CATEGORY_MAP } = require('./tzevaAdomService');
+const { CATEGORY_MAP, resolveCategory } = require('./tzevaAdomService');
 
 class AnalyticsService {
     constructor({ alertRepo = alertRepository, contactRepo = contactRepository } = {}) {
@@ -8,11 +8,14 @@ class AnalyticsService {
         this.contactRepo = contactRepo;
     }
 
-    async getAnalytics({ period = '24h', groupId = null } = {}) {
+    async getAnalytics({ period = '24h', groupId = null, memberSearch = null } = {}) {
         const nowSeconds = Math.floor(Date.now() / 1000);
         let sinceSeconds = 0;
 
         switch (period) {
+            case '1h':
+                sinceSeconds = nowSeconds - 3600;
+                break;
             case '24h':
                 sinceSeconds = nowSeconds - (24 * 3600);
                 break;
@@ -21,6 +24,9 @@ class AnalyticsService {
                 break;
             case '30d':
                 sinceSeconds = nowSeconds - (30 * 86400);
+                break;
+            case '1y':
+                sinceSeconds = nowSeconds - (365 * 86400);
                 break;
             case 'all':
             default:
@@ -40,7 +46,7 @@ class AnalyticsService {
 
         const categoryBreakdown = Object.entries(categoryCounts).map(([catId, count]) => {
             const idNum = Number(catId);
-            const meta = CATEGORY_MAP[idNum] || { key: 'general', en: 'Other Alert', fr: 'Autre alerte', icon: '⚠️' };
+            const meta = resolveCategory(idNum);
             const percentage = alerts.length > 0 ? Math.round((count / alerts.length) * 100) : 0;
             return {
                 categoryId: idNum,
@@ -73,7 +79,7 @@ class AnalyticsService {
         const contacts = await this.contactRepo.getContactsByGroup({ groupId: groupId || null });
         const contactsWithCity = contacts.filter(c => c.city_name || c.city_name_en);
 
-        const memberImpact = [];
+        let memberImpact = [];
         for (const contact of contactsWithCity) {
             const hebrew = (contact.city_name || '').trim().toLowerCase();
             const english = (contact.city_name_en || '').trim().toLowerCase();
@@ -102,6 +108,18 @@ class AnalyticsService {
             }
         }
 
+        // Optional member search filter
+        if (memberSearch && typeof memberSearch === 'string' && memberSearch.trim()) {
+            const q = memberSearch.trim().toLowerCase();
+            memberImpact = memberImpact.filter(m => {
+                const name = (m.name || '').toLowerCase();
+                const phone = (m.number || '').toLowerCase();
+                const city = (m.cityName || '').toLowerCase();
+                const cityEn = (m.cityNameEn || '').toLowerCase();
+                return name.includes(q) || phone.includes(q) || city.includes(q) || cityEn.includes(q);
+            });
+        }
+
         memberImpact.sort((a, b) => b.alertsReceived - a.alertsReceived);
 
         return {
@@ -111,7 +129,121 @@ class AnalyticsService {
             topCities,
             categoryBreakdown,
             affectedMembersCount: memberImpact.length,
-            memberImpact: memberImpact.slice(0, 15)
+            memberImpact: memberImpact.slice(0, 25)
+        };
+    }
+
+    async getMemberAnalytics({ identifier = null, search = null } = {}) {
+        let contact = null;
+        if (identifier) {
+            contact = await this.contactRepo.getByIdOrLid(identifier);
+        }
+        if (!contact && search) {
+            const matches = await this.contactRepo.getContactsByGroup({ search });
+            if (matches && matches.length > 0) {
+                contact = matches[0];
+            }
+        }
+
+        if (!contact) {
+            return { found: false, error: 'Member not found' };
+        }
+
+        const hebrew = (contact.city_name || '').trim().toLowerCase();
+        const english = (contact.city_name_en || '').trim().toLowerCase();
+        const hasCity = !!(hebrew || english);
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const cutoffs = {
+            '1h': nowSeconds - 3600,
+            '24h': nowSeconds - (24 * 3600),
+            '7d': nowSeconds - (7 * 86400),
+            '30d': nowSeconds - (30 * 86400),
+            '1y': nowSeconds - (365 * 86400),
+            'all': 0
+        };
+
+        const periodCounts = {
+            '1h': 0,
+            '24h': 0,
+            '7d': 0,
+            '30d': 0,
+            '1y': 0,
+            'all': 0
+        };
+
+        const categoryCounts = {};
+        const recentAlertsForMember = [];
+
+        if (hasCity) {
+            const allAlerts = await this.alertRepo.getRecentAlerts(0);
+
+            const matchesCity = (alert) => {
+                return (alert.cities || []).some(c => {
+                    const cleanC = String(c).trim().toLowerCase();
+                    return (hebrew && (cleanC === hebrew || cleanC.startsWith(hebrew) || hebrew.startsWith(cleanC))) ||
+                           (english && (cleanC === english || cleanC.includes(english)));
+                });
+            };
+
+            for (const a of allAlerts) {
+                if (matchesCity(a)) {
+                    const ts = Number(a.timestamp);
+                    if (ts >= cutoffs['1h']) periodCounts['1h']++;
+                    if (ts >= cutoffs['24h']) periodCounts['24h']++;
+                    if (ts >= cutoffs['7d']) periodCounts['7d']++;
+                    if (ts >= cutoffs['30d']) periodCounts['30d']++;
+                    if (ts >= cutoffs['1y']) periodCounts['1y']++;
+                    periodCounts['all']++;
+
+                    const catId = a.categoryId || 1;
+                    categoryCounts[catId] = (categoryCounts[catId] || 0) + 1;
+
+                    if (recentAlertsForMember.length < 10) {
+                        const meta = resolveCategory(catId, a.categoryTitle);
+                        recentAlertsForMember.push({
+                            id: a.id,
+                            categoryId: catId,
+                            titleEn: meta.en,
+                            titleFr: meta.fr,
+                            icon: meta.icon,
+                            timestamp: ts,
+                            date: new Date(ts * 1000).toISOString()
+                        });
+                    }
+                }
+            }
+        }
+
+        const categoryBreakdown = Object.entries(categoryCounts).map(([catId, count]) => {
+            const idNum = Number(catId);
+            const meta = resolveCategory(idNum);
+            return {
+                categoryId: idNum,
+                key: meta.key,
+                titleEn: meta.en,
+                titleFr: meta.fr,
+                icon: meta.icon,
+                count
+            };
+        }).sort((a, b) => b.count - a.count);
+
+        return {
+            found: true,
+            member: {
+                id: contact.id,
+                lid: contact.lid || null,
+                name: contact.name || contact.notify || contact.phone_number || contact.id,
+                phoneNumber: contact.phone_number ? `+${contact.phone_number.split('@')[0].replace(/\D/g, '')}` : null,
+                cityId: contact.city_id || null,
+                cityName: contact.city_name || null,
+                cityNameEn: contact.city_name_en || null,
+                countdown: contact.city_countdown || null,
+                hasCity
+            },
+            periodCounts,
+            categoryBreakdown,
+            recentAlerts: recentAlertsForMember
         };
     }
 }

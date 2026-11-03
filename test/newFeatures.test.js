@@ -212,6 +212,39 @@ describe('New 2026 Features: Backup, Historical Alerts, Analytics & Directory', 
             assert.ok(exposed.alertsReceived >= 2);
             assert.equal(exposed.cityName, 'שדרות');
         });
+
+        it('supports 1h period and memberSearch filtering in getAnalytics', async () => {
+            const summary1h = await analyticsService.getAnalytics({ period: '1h' });
+            assert.ok(summary1h.totalAlerts >= 2);
+
+            const searchMatch = await analyticsService.getAnalytics({ period: '24h', memberSearch: 'Exposed' });
+            assert.ok(searchMatch.memberImpact.length > 0);
+
+            const searchNoMatch = await analyticsService.getAnalytics({ period: '24h', memberSearch: 'NobodyWithThisName' });
+            assert.equal(searchNoMatch.memberImpact.length, 0);
+        });
+
+        it('computes multi-period member analytics breakdown (1h, 24h, 7d, 30d, 1y, all)', async () => {
+            const memberStats = await analyticsService.getMemberAnalytics({ identifier: '972549991111@s.whatsapp.net' });
+            assert.equal(memberStats.found, true);
+            assert.equal(memberStats.member.name, 'Exposed Member');
+            assert.equal(memberStats.member.cityNameEn, 'Sderot');
+
+            assert.ok(memberStats.periodCounts);
+            assert.ok(memberStats.periodCounts['1h'] >= 2);
+            assert.ok(memberStats.periodCounts['24h'] >= 2);
+            assert.ok(memberStats.periodCounts['7d'] >= 2);
+            assert.ok(memberStats.periodCounts['30d'] >= 2);
+            assert.ok(memberStats.periodCounts['1y'] >= 2);
+            assert.ok(memberStats.periodCounts['all'] >= 2);
+
+            assert.ok(Array.isArray(memberStats.categoryBreakdown));
+            assert.ok(Array.isArray(memberStats.recentAlerts));
+
+            // Edge case: non-existent member
+            const notFound = await analyticsService.getMemberAnalytics({ identifier: 'unknown_phantom@s.whatsapp.net' });
+            assert.equal(notFound.found, false);
+        });
     });
 
     describe('Contact Group Association & Batch City Update', () => {

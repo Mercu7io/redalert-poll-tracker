@@ -61,6 +61,39 @@ class AlertRepository {
         });
     }
 
+    async getAlertsInWindow(fromTimestamp, toTimestamp) {
+        const db = this.getDb();
+        return new Promise((resolve, reject) => {
+            const query = `
+                SELECT id, category_id, category_title, cities, description, timestamp, created_at
+                FROM alerts_history
+                WHERE timestamp >= ? AND timestamp <= ?
+                ORDER BY timestamp DESC
+            `;
+            db.all(query, [Number(fromTimestamp), Number(toTimestamp)], (err, rows) => {
+                if (err) return reject(err);
+                const mapped = (rows || []).map(r => {
+                    let parsedCities = [];
+                    try {
+                        parsedCities = JSON.parse(r.cities);
+                    } catch {
+                        parsedCities = [];
+                    }
+                    return {
+                        id: r.id,
+                        categoryId: r.category_id,
+                        categoryTitle: r.category_title,
+                        cities: parsedCities,
+                        description: r.description,
+                        timestamp: r.timestamp,
+                        createdAt: r.created_at
+                    };
+                });
+                resolve(mapped);
+            });
+        });
+    }
+
     async getAlertsForCity(cityName, sinceTimestamp = 0) {
         if (!cityName) return [];
         const alerts = await this.getRecentAlerts(sinceTimestamp);
@@ -80,42 +113,49 @@ class AlertRepository {
 
         return new Promise((resolve, reject) => {
             db.serialize(() => {
-                db.run('BEGIN TRANSACTION');
-                const stmt = db.prepare(`
-                    INSERT INTO alerts_history (id, category_id, category_title, cities, description, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(id) DO UPDATE SET
-                        category_id = excluded.category_id,
-                        category_title = excluded.category_title,
-                        cities = excluded.cities,
-                        description = COALESCE(excluded.description, alerts_history.description),
-                        timestamp = excluded.timestamp
-                `);
-
-                let insertedCount = 0;
-                for (const a of alertsList) {
-                    if (a && a.id) {
-                        const citiesJson = Array.isArray(a.cities) ? JSON.stringify(a.cities) : (typeof a.cities === 'string' ? a.cities : '[]');
-                        stmt.run([
-                            String(a.id),
-                            Number(a.categoryId || a.cat || 1),
-                            a.categoryTitle || a.title || 'Alert',
-                            citiesJson,
-                            a.description || a.desc || null,
-                            Number(a.timestamp)
-                        ]);
-                        insertedCount++;
+                db.run('BEGIN TRANSACTION', (beginErr) => {
+                    if (beginErr) {
+                        // If transaction is already active, proceed without nested BEGIN
                     }
-                }
 
-                stmt.finalize((err) => {
-                    if (err) {
-                        db.run('ROLLBACK');
-                        return reject(err);
+                    const stmt = db.prepare(`
+                        INSERT INTO alerts_history (id, category_id, category_title, cities, description, timestamp)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(id) DO UPDATE SET
+                            category_id = excluded.category_id,
+                            category_title = excluded.category_title,
+                            cities = excluded.cities,
+                            description = COALESCE(excluded.description, alerts_history.description),
+                            timestamp = excluded.timestamp
+                    `);
+
+                    let insertedCount = 0;
+                    for (const a of alertsList) {
+                        if (a && a.id) {
+                            const citiesJson = Array.isArray(a.cities) ? JSON.stringify(a.cities) : (typeof a.cities === 'string' ? a.cities : '[]');
+                            stmt.run([
+                                String(a.id),
+                                Number(a.categoryId || a.cat || 1),
+                                a.categoryTitle || a.title || 'Alert',
+                                citiesJson,
+                                a.description || a.desc || null,
+                                Number(a.timestamp)
+                            ]);
+                            insertedCount++;
+                        }
                     }
-                    db.run('COMMIT', (commitErr) => {
-                        if (commitErr) return reject(commitErr);
-                        resolve(insertedCount);
+
+                    stmt.finalize((err) => {
+                        if (err) {
+                            db.run('ROLLBACK', () => reject(err));
+                            return;
+                        }
+                        db.run('COMMIT', (commitErr) => {
+                            if (commitErr && !commitErr.message.includes('no transaction')) {
+                                return reject(commitErr);
+                            }
+                            resolve(insertedCount);
+                        });
                     });
                 });
             });

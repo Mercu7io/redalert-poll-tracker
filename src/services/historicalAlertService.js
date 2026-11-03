@@ -1,5 +1,5 @@
 const alertRepository = require('../repositories/alertRepository');
-const { CATEGORY_MAP } = require('./tzevaAdomService');
+const { CATEGORY_MAP, resolveCategory } = require('./tzevaAdomService');
 
 class HistoricalAlertService {
     constructor({ alertRepo = alertRepository, fetchFn = fetch } = {}) {
@@ -49,9 +49,8 @@ class HistoricalAlertService {
                 continue;
             }
 
-            // Normalization: in Tzofar historical data, 0 is Rockets/Missiles (category 1)
-            const normalizedCategory = (cat === 0) ? 1 : (cat || 1);
-            const categoryMeta = CATEGORY_MAP[normalizedCategory] || { en: 'Tzeva Adom Alert' };
+            const itemTitle = (item && typeof item === 'object') ? (item.title || item.categoryTitle || '') : '';
+            const categoryMeta = resolveCategory(cat, itemTitle);
 
             // Timestamp in seconds
             if (timestamp > 1e11) {
@@ -60,7 +59,7 @@ class HistoricalAlertService {
 
             batch.push({
                 id: `${id}_${timestamp}`,
-                categoryId: normalizedCategory,
+                categoryId: categoryMeta.categoryId,
                 categoryTitle: categoryMeta.en,
                 cities,
                 description: null,

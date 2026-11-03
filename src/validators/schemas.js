@@ -66,8 +66,14 @@ const batchUpdateCitySchema = z.object({
 });
 
 const analyticsQuerySchema = z.object({
-    period: z.enum(['24h', '7d', '30d', 'all']).default('24h'),
-    groupId: z.string().optional().nullable()
+    period: z.enum(['1h', '24h', '7d', '30d', '1y', 'all']).default('24h'),
+    groupId: z.string().optional().nullable(),
+    memberSearch: z.string().optional().nullable()
+});
+
+const memberStatsQuerySchema = z.object({
+    identifier: z.string().optional().nullable(),
+    search: z.string().optional().nullable()
 });
 
 const purgeAlertsSchema = z.object({
@@ -87,6 +93,7 @@ module.exports = {
     getContactsQuerySchema,
     batchUpdateCitySchema,
     analyticsQuerySchema,
+    memberStatsQuerySchema,
     purgeAlertsSchema
 };
 
