@@ -7,6 +7,15 @@ class ContactCache {
         this.lidMap = new Map(); // Maps LID to Phone / ID
     }
 
+    setLidMapping(k, v) {
+        if (!k || !v) return;
+        if (this.lidMap.size >= this.max) {
+            const oldest = this.lidMap.keys().next().value;
+            this.lidMap.delete(oldest);
+        }
+        this.lidMap.set(k, v);
+    }
+
     get(key) {
         if (!key) return undefined;
         const clean = key.split(':')[0];
@@ -51,8 +60,8 @@ class ContactCache {
 
         if (extra.lid) {
             const cleanLid = extra.lid.split(':')[0];
-            this.lidMap.set(cleanLid, cleanKey);
-            this.lidMap.set(cleanKey, cleanLid); // Bidirectional mapping
+            this.setLidMapping(cleanLid, cleanKey);
+            this.setLidMapping(cleanKey, cleanLid); // Bidirectional mapping
             this.cache.set(cleanLid, val);
         }
 
@@ -79,8 +88,8 @@ class ContactCache {
                 if (name) {
                     this.set(id, name, { lid, phoneNumber: contact.phoneNumber, name: contact.name });
                 } else if (lid) {
-                    this.lidMap.set(lid, id);
-                    this.lidMap.set(id, lid);
+                    this.setLidMapping(lid, id);
+                    this.setLidMapping(id, lid);
                 }
 
                 toPersist.push({
@@ -111,8 +120,8 @@ class ContactCache {
                 }
                 if (row.lid) {
                     const cleanLid = row.lid.split(':')[0];
-                    this.lidMap.set(cleanLid, cleanId);
-                    this.lidMap.set(cleanId, cleanLid);
+                    this.setLidMapping(cleanLid, cleanId);
+                    this.setLidMapping(cleanId, cleanLid);
                     if (name) this.cache.set(cleanLid, name);
                 }
                 if (row.phone_number) {
@@ -120,12 +129,12 @@ class ContactCache {
                     const phoneJid = `${cleanPhone}@s.whatsapp.net`;
                     if (row.lid) {
                         const cleanLid = row.lid.split(':')[0];
-                        this.lidMap.set(cleanLid, phoneJid);
-                        this.lidMap.set(phoneJid, cleanLid);
+                        this.setLidMapping(cleanLid, phoneJid);
+                        this.setLidMapping(phoneJid, cleanLid);
                     }
                     if (cleanId.includes('@lid')) {
-                        this.lidMap.set(cleanId, phoneJid);
-                        this.lidMap.set(phoneJid, cleanId);
+                        this.setLidMapping(cleanId, phoneJid);
+                        this.setLidMapping(phoneJid, cleanId);
                     }
                 }
             }

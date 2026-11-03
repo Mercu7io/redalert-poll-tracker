@@ -25,10 +25,23 @@ class WhatsAppService {
         this.isConnected = false;
         this.qrCodeDataUrl = null;
         this.syncCheckInterval = null;
+        this.reconnectTimeout = null;
         this.pollCache = new Map();
+        this.maxPollCacheSize = 100;
         this.io = null;
         this.isReconnecting = false;
         this.logger = pino({ level: 'silent' });
+    }
+
+    setPollCache(id, msg) {
+        if (!id || !msg) return;
+        if (this.pollCache.has(id)) {
+            this.pollCache.delete(id);
+        } else if (this.pollCache.size >= this.maxPollCacheSize) {
+            const oldestKey = this.pollCache.keys().next().value;
+            this.pollCache.delete(oldestKey);
+        }
+        this.pollCache.set(id, msg);
     }
 
     setSocketIO(io) {
@@ -57,6 +70,10 @@ class WhatsAppService {
             clearInterval(this.syncCheckInterval);
             this.syncCheckInterval = null;
         }
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
         if (this.sock) {
             try {
                 this.sock.ev.removeAllListeners();
@@ -69,6 +86,7 @@ class WhatsAppService {
 
     async boot() {
         if (this.isReconnecting) return;
+        this.isReconnecting = true;
         this.cleanupCurrentSocket();
 
         console.log("🚀 Starting Baileys Engine (No Chromium Required)...");
@@ -116,8 +134,15 @@ class WhatsAppService {
 
                 this.cleanupCurrentSocket();
 
+                if (this.reconnectTimeout) {
+                    clearTimeout(this.reconnectTimeout);
+                }
+
                 if (shouldReconnect) {
-                    setTimeout(() => this.boot(), 5000);
+                    this.reconnectTimeout = setTimeout(() => {
+                        this.isReconnecting = false;
+                        this.boot();
+                    }, 5000);
                 } else {
                     console.log('Session Logged Out. Wiping auth folder...');
                     try {
@@ -125,11 +150,19 @@ class WhatsAppService {
                     } catch (e) {
                         console.error('Error removing auth folder:', e.message);
                     }
-                    setTimeout(() => this.boot(), 2000);
+                    this.reconnectTimeout = setTimeout(() => {
+                        this.isReconnecting = false;
+                        this.boot();
+                    }, 2000);
                 }
             } else if (connection === 'open') {
                 console.log('✅ Success: Baileys Engine is Connected and Ready!');
                 this.isConnected = true;
+                this.isReconnecting = false;
+                if (this.reconnectTimeout) {
+                    clearTimeout(this.reconnectTimeout);
+                    this.reconnectTimeout = null;
+                }
                 this.qrCodeDataUrl = null;
                 this.emitStatus();
 
@@ -215,7 +248,7 @@ class WhatsAppService {
         if (pollCreation) {
             const title = pollCreation.name;
             const rawMessage = JSON.stringify(msg);
-            this.pollCache.set(msgId, msg);
+            this.setPollCache(msgId, msg);
 
             try {
                 const res = await pollRepository.create({ id: msgId, groupId, title, rawMessage });
@@ -244,7 +277,7 @@ class WhatsAppService {
                     if (rawDb) {
                         try {
                             originalMsg = JSON.parse(rawDb, bufferReviver);
-                            this.pollCache.set(pollId, originalMsg);
+                            this.setPollCache(pollId, originalMsg);
                         } catch (e) {
                             console.error('[DEBUG] Failed to parse poll JSON from DB:', e.message);
                         }
@@ -426,6 +459,11 @@ class WhatsAppService {
     }
 
     async disconnect() {
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+        this.isReconnecting = false;
         if (this.syncCheckInterval) {
             clearInterval(this.syncCheckInterval);
             this.syncCheckInterval = null;

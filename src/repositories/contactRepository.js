@@ -35,34 +35,37 @@ class ContactRepository {
 
         return new Promise((resolve, reject) => {
             db.serialize(() => {
-                db.run('BEGIN TRANSACTION');
-                const stmt = db.prepare(`
-                    INSERT INTO contacts (id, lid, phone_number, name, notify, updated_at)
-                    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(id) DO UPDATE SET
-                        lid = COALESCE(excluded.lid, contacts.lid),
-                        phone_number = COALESCE(excluded.phone_number, contacts.phone_number),
-                        name = COALESCE(excluded.name, contacts.name),
-                        notify = COALESCE(excluded.notify, contacts.notify),
-                        updated_at = CURRENT_TIMESTAMP
-                `);
+                db.run('BEGIN TRANSACTION', (beginErr) => {
+                    const stmt = db.prepare(`
+                        INSERT INTO contacts (id, lid, phone_number, name, notify, updated_at)
+                        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        ON CONFLICT(id) DO UPDATE SET
+                            lid = COALESCE(excluded.lid, contacts.lid),
+                            phone_number = COALESCE(excluded.phone_number, contacts.phone_number),
+                            name = COALESCE(excluded.name, contacts.name),
+                            notify = COALESCE(excluded.notify, contacts.notify),
+                            updated_at = CURRENT_TIMESTAMP
+                    `);
 
-                for (const c of contactsList) {
-                    if (c && c.id) {
-                        const cleanId = c.id.split(':')[0];
-                        const cleanLid = c.lid ? c.lid.split(':')[0] : null;
-                        stmt.run([cleanId, cleanLid, c.phoneNumber || null, c.name || null, c.notify || null]);
+                    for (const c of contactsList) {
+                        if (c && c.id) {
+                            const cleanId = c.id.split(':')[0];
+                            const cleanLid = c.lid ? c.lid.split(':')[0] : null;
+                            stmt.run([cleanId, cleanLid, c.phoneNumber || null, c.name || null, c.notify || null]);
+                        }
                     }
-                }
 
-                stmt.finalize((err) => {
-                    if (err) {
-                        db.run('ROLLBACK');
-                        return reject(err);
-                    }
-                    db.run('COMMIT', (commitErr) => {
-                        if (commitErr) return reject(commitErr);
-                        resolve();
+                    stmt.finalize((err) => {
+                        if (err) {
+                            db.run('ROLLBACK', () => reject(err));
+                            return;
+                        }
+                        db.run('COMMIT', (commitErr) => {
+                            if (commitErr && !commitErr.message.includes('no transaction')) {
+                                return reject(commitErr);
+                            }
+                            resolve();
+                        });
                     });
                 });
             });
@@ -230,29 +233,32 @@ class ContactRepository {
 
         return new Promise((resolve, reject) => {
             db.serialize(() => {
-                db.run('BEGIN TRANSACTION');
-                const stmt = db.prepare(`
-                    INSERT OR IGNORE INTO contact_groups (contact_id, group_id)
-                    VALUES (?, ?)
-                `);
+                db.run('BEGIN TRANSACTION', () => {
+                    const stmt = db.prepare(`
+                        INSERT OR IGNORE INTO contact_groups (contact_id, group_id)
+                        VALUES (?, ?)
+                    `);
 
-                let count = 0;
-                for (const cid of contactIds) {
-                    if (cid) {
-                        const clean = String(cid).split(':')[0];
-                        stmt.run([clean, groupId]);
-                        count++;
+                    let count = 0;
+                    for (const cid of contactIds) {
+                        if (cid) {
+                            const clean = String(cid).split(':')[0];
+                            stmt.run([clean, groupId]);
+                            count++;
+                        }
                     }
-                }
 
-                stmt.finalize((err) => {
-                    if (err) {
-                        db.run('ROLLBACK');
-                        return reject(err);
-                    }
-                    db.run('COMMIT', (cErr) => {
-                        if (cErr) return reject(cErr);
-                        resolve(count);
+                    stmt.finalize((err) => {
+                        if (err) {
+                            db.run('ROLLBACK', () => reject(err));
+                            return;
+                        }
+                        db.run('COMMIT', (cErr) => {
+                            if (cErr && !cErr.message.includes('no transaction')) {
+                                return reject(cErr);
+                            }
+                            resolve(count);
+                        });
                     });
                 });
             });

@@ -61,5 +61,87 @@ describe('TzevaAdomService', () => {
         const statusNull = service.checkCityAlertStatus(null);
         assert.equal(statusNull.hasAlert, false);
     });
+
+    it('correctly maps Tzofar category 5 to drone (NOT tsunami) and resolves Hebrew titles', async () => {
+        const { resolveCategory } = require('../src/services/tzevaAdomService');
+
+        // Tzofar cat 5 is drone
+        const cat5 = resolveCategory(5, '');
+        assert.equal(cat5.key, 'drone');
+        assert.equal(cat5.icon, '🛸');
+
+        // Tzofar cat 0 is missiles
+        const cat0 = resolveCategory(0, '');
+        assert.equal(cat0.key, 'missiles');
+        assert.equal(cat0.icon, '🚀');
+
+        // Real tsunami only when code 9 or title contains tsunami
+        const tsunamiByCode = resolveCategory(9, '');
+        assert.equal(tsunamiByCode.key, 'tsunami');
+        assert.equal(tsunamiByCode.icon, '🌊');
+
+        const tsunamiByTitle = resolveCategory(1, 'חשש לצונאמי');
+        assert.equal(tsunamiByTitle.key, 'tsunami');
+        assert.equal(tsunamiByTitle.icon, '🌊');
+
+        // Edge case: completely unknown code falls back gracefully
+        const unknown = resolveCategory(999, 'Test Alert');
+        assert.equal(unknown.key, 'general');
+        assert.equal(unknown.icon, '⚠️');
+    });
+
+    it('evaluates alert window around poll timestamp (both before and after poll)', async () => {
+        const mockRepo = { saveAlert: async () => {} };
+        const mockCitySvc = {
+            getCityByName: (name) => ({ id: 100, name: 'חיפה', nameEn: 'Haifa', countdown: 60 })
+        };
+        const service = new TzevaAdomService({ alertRepo: mockRepo, citySvc: mockCitySvc });
+
+        const pollTime = 1700000000;
+
+        // Alert 1: occurred 5 minutes BEFORE the poll
+        await service.processRawAlert({
+            id: 'before-poll-alert',
+            cat: 5, // drone
+            title: 'חדירת כלי טיס עוין',
+            data: ['חיפה'],
+            timestamp: pollTime - 300 // 5 min before
+        });
+
+        // Checking with 10 min window around pollTime -> should find alert
+        const resBefore = service.checkCityAlertStatus('Haifa', 10, pollTime);
+        assert.equal(resBefore.hasAlert, true);
+        assert.equal(resBefore.categoryKey, 'drone');
+        assert.equal(resBefore.icon, '🛸');
+
+        // Alert 2: occurred 5 minutes AFTER the poll
+        await service.processRawAlert({
+            id: 'after-poll-alert',
+            cat: 1, // missiles
+            title: 'ירי רקטות וטילים',
+            data: ['חיפה'],
+            timestamp: pollTime + 300 // 5 min after
+        });
+
+        const resAfter = service.checkCityAlertStatus('Haifa', 10, pollTime);
+        assert.equal(resAfter.hasAlert, true);
+
+        // Edge case: alert occurred 25 minutes before poll -> outside 10 min window
+        const oldPollTime = pollTime + 1800; // 30 min later
+        const resOutside = service.checkCityAlertStatus('Haifa', 10, oldPollTime);
+        assert.equal(resOutside.hasAlert, false);
+
+        // Integration with customAlertsList (e.g. alerts retrieved from SQLite database)
+        const customAlerts = [{
+            id: 'sqlite-alert-1',
+            categoryId: 1,
+            categoryTitle: 'Rockets & Missiles',
+            cities: ['חיפה'],
+            timestamp: oldPollTime - 120 // 2 min before oldPollTime
+        }];
+        const resFromSqlite = service.checkCityAlertStatus('Haifa', 10, oldPollTime, customAlerts);
+        assert.equal(resFromSqlite.hasAlert, true);
+        assert.equal(resFromSqlite.alert.id, 'sqlite-alert-1');
+    });
 });
 

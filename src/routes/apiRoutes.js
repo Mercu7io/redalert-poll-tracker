@@ -22,6 +22,7 @@ const {
     getContactsQuerySchema,
     batchUpdateCitySchema,
     analyticsQuerySchema,
+    memberStatsQuerySchema,
     purgeAlertsSchema
 } = require('../validators/schemas');
 
@@ -115,6 +116,12 @@ router.get(
     '/stats/summary',
     validate({ query: analyticsQuerySchema }),
     analyticsController.getSummary
+);
+
+router.get(
+    '/stats/member',
+    validate({ query: memberStatsQuerySchema }),
+    analyticsController.getMemberStats
 );
 
 // Backup & Restore
