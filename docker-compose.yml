@@ -1,8 +1,8 @@
 services:
-  wa-poll-tracker:
+  redalert-poll-tracker:
     image: ghcr.io/mercu7io/redalert-poll-tracker:latest
     # build: . # Uncomment to build locally
-    container_name: wa-poll-tracker
+    container_name: redalert-poll-tracker
     ports:
       - "${PORT:-3500}:3500"
     volumes:

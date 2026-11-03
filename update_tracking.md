@@ -37,3 +37,4 @@
 - 2026-11-02: Configuration multi-architectures (linux/amd64 et linux/arm64) dans le workflow GitHub Actions avec QEMU et Buildx pour supporter les NAS ARM.
 - 2026-11-03: Correction de la cartographie des alertes Tzofar (résolution du bug tsunami pour le code drone 5), évaluation temporelle bidirectionnelle des alertes autour de l'heure du sondage avec intégration SQLite, sécurisation de la reconnexion Baileys, gestion anti-collision des transactions et plafonnement des caches mémoire.
 - 2026-11-03: Ajout des périodes 1h et 1 an dans les statistiques de crise, création du bilan et de la recherche par membre multi-périodes (1h, 24h, 7j, 30j, 1 an, total) et refonte complète du README pour un déploiement Docker simple et user-friendly.
+- 2026-11-03: Traduction intégrale en anglais du README.md et harmonisation de la dénomination officielle du conteneur et du service vers redalert-poll-tracker.
